@@ -36,11 +36,11 @@ export function Hero() {
 
           <h1
             id="hero-title"
-            className={`${reveal} mt-6 text-4xl font-semibold tracking-tight text-balance text-glow [animation-delay:80ms] sm:text-6xl lg:text-7xl`}
+            className={`${reveal} mt-6 text-4xl font-semibold tracking-tight text-balance text-foreground [animation-delay:80ms] hero-glow sm:text-6xl lg:text-7xl`}
           >
-            <span className="text-silver">Know your edge.</span>
+            Know your edge.
             <br />
-            <span className="text-muted-foreground">Journal every trade.</span>
+            Journal every trade.
           </h1>
 
           <p
