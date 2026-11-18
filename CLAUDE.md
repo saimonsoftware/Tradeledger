@@ -1,0 +1,450 @@
+# CLAUDE.md — Day Trading Journal & Account Tracker
+
+> **How to use this file:** Save it as `CLAUDE.md` in the root of an empty project folder, open that folder in your terminal, and run `claude`. Claude Code reads this file automatically at the start of every session. Then paste the **Kickoff Prompt** (bottom of this file) to begin Phase 0.
+
+---
+
+## 1. Project Overview
+
+We are building a **web-based day trading journal and account tracking platform** (working name: **TradeLedger**, which can be renamed later). Traders use it to:
+
+- See all of their trading accounts in one dashboard (balances, weekly profit/loss)
+- Log every trade they take, with entry/exit, size, fees, notes and strategy
+- Review performance over time (later phases: analytics, calendar, broker sync)
+
+This document covers **Release 1**: Landing page, Authentication, Dashboard, Trade Logging, and Dark/Light mode. Later phases are listed at the end so architecture decisions don't block them.
+
+### About the developer (important for how you work)
+
+- The owner is **learning full-stack development** and is early in that journey. **Explain what you're doing and why** in plain language as you build, especially for security, database and auth decisions.
+- Work in **small, reviewable steps**. After each milestone, stop, summarise what was built, list how to test it manually, and wait for approval before continuing.
+- Prefer **well-known, well-documented tools** over clever or obscure ones.
+- Development machine: **MacBook + VS Code**.
+
+---
+
+## 2. Tech Stack (use exactly this unless you ask first)
+
+| Layer           | Choice                                                             | Why                                                                                                                   |
+| --------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Framework       | **Next.js (latest stable, App Router) + TypeScript (strict mode)** | Full-stack in one project, huge ecosystem                                                                             |
+| Styling         | **Tailwind CSS** + **shadcn/ui** components                        | Fast, consistent, modern UI                                                                                           |
+| Theming         | **next-themes**                                                    | Dark/light/system mode with no flash on load                                                                          |
+| Auth + Database | **Supabase** (Postgres + Supabase Auth) via **@supabase/ssr**      | Secure email/password auth, cookie sessions, **Row Level Security** to isolate each user's data at the database level |
+| Validation      | **Zod** (shared client + server schemas)                           | Never trust input                                                                                                     |
+| Forms           | **react-hook-form** + Zod resolver                                 |                                                                                                                       |
+| Charts          | **Recharts**                                                       | Equity curve / P&L charts                                                                                             |
+| Dates           | **date-fns** + **date-fns-tz**                                     | Week boundaries and timezones                                                                                         |
+| Icons           | **lucide-react**                                                   |                                                                                                                       |
+| Testing         | **Vitest** (unit), **Playwright** (end-to-end)                     |                                                                                                                       |
+| Linting         | ESLint + Prettier                                                  |                                                                                                                       |
+| Hosting         | **Vercel** (app) + **Supabase Cloud** (DB/Auth)                    |                                                                                                                       |
+
+**Package manager:** `npm`.
+
+---
+
+## 3. Non-Negotiable Rules
+
+### 3.1 Security rules (highest priority)
+
+These rules override everything else. If a feature request conflicts with them, stop and flag it.
+
+1. **Every table holding user data has a `user_id uuid` column referencing `auth.users(id)` and Row Level Security (RLS) ENABLED**, with policies restricting `SELECT / INSERT / UPDATE / DELETE` to `auth.uid() = user_id`. No exceptions.
+2. **Never use the Supabase `service_role` key in the browser** or in any file that ships to the client. It must not be needed for Release 1 at all. If you think it is, ask first.
+3. **Never trust `user_id` from the client.** On insert, set it server-side from the authenticated session (or with a DB default of `auth.uid()`), and RLS `WITH CHECK` must enforce it.
+4. **Sessions are stored in secure, httpOnly cookies** using `@supabase/ssr`. Never store tokens in `localStorage`.
+5. **Use `supabase.auth.getUser()` (not `getSession()`) on the server** when making authorization decisions, because it re-validates the token with Supabase.
+6. **Protect all `/app/*` routes in Next.js proxy (`proxy.ts`, formerly called middleware)**: unauthenticated users are redirected to `/login`. Also check auth again inside every Server Action and Route Handler (proxy alone is not enough).
+7. **Validate every input with Zod on the server** (Server Actions / Route Handlers), even if it was validated on the client.
+8. **Secrets live in `.env.local` only**, and `.env*` is in `.gitignore`. Provide a `.env.example` with placeholder values.
+9. **Generic error messages for auth:** login failures say "Invalid email or password". Never reveal whether an email exists. Signup and password reset show the same neutral "If that email is valid, check your inbox" message.
+10. **Security headers** in `next.config`: Content-Security-Policy, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, and HSTS in production.
+11. **No `dangerouslySetInnerHTML`** with user content. Trade notes are rendered as plain text.
+12. **Write an automated test that proves data isolation**: create User A and User B, have A create an account and a trade, then confirm B cannot read, update or delete them, both via the app and via direct Supabase queries with B's session.
+
+### 3.2 Code quality rules
+
+- TypeScript `strict: true`. No `any` unless justified in a comment.
+- Generate DB types with `supabase gen types typescript` and use them.
+- Money and prices are **never** JavaScript floats in the database. Use Postgres `numeric`. Convert carefully in the UI.
+- Keep components small. Server Components by default; `"use client"` only where interactivity is needed.
+- All database changes go through **Supabase migration files** in `supabase/migrations/`, never ad-hoc dashboard edits.
+- Commit after each working milestone with a clear message.
+
+---
+
+## 4. Design System
+
+### 4.1 Overall feel
+
+Modern, dark, premium fintech. Think clean trading terminal meets a polished SaaS product. Calm, data-dense but uncluttered. **Dark mode is the default**; light mode must look equally intentional, not an afterthought.
+
+### 4.2 Theme
+
+- Implement with `next-themes` using the `class` strategy, `defaultTheme="dark"`, and `enableSystem`.
+- A **theme toggle** (sun/moon icon, with Light / Dark / System options) appears in the landing page navbar **and** the app top bar.
+- Define all colours as CSS variables (shadcn convention) so both themes come from one token set.
+- Semantic colours:
+  - **Profit / positive:** green (e.g. emerald)
+  - **Loss / negative:** red (e.g. rose)
+  - **Neutral / breakeven:** muted grey
+  - **Accent / brand:** one confident accent (e.g. electric blue or violet). Pick one and use it consistently.
+- Never rely on colour alone for profit vs loss: also show `+` / `−` signs and/or arrow icons (accessibility).
+
+### 4.3 Typography and numbers
+
+- Clean sans-serif (e.g. Inter or Geist).
+- **All numbers use tabular figures** (`font-variant-numeric: tabular-nums`) so columns line up.
+- Currency formatted with `Intl.NumberFormat` using the account's currency.
+
+### 4.4 Responsiveness & accessibility
+
+- Fully responsive: mobile, tablet, desktop.
+- WCAG AA contrast in both themes. Keyboard navigable. Visible focus rings. Labels on all inputs.
+
+---
+
+## 5. Release 1 Features
+
+### 5.1 Landing Page (`/`)
+
+A public, dark, modern marketing page.
+
+**Sections (in order):**
+
+1. **Navbar:** logo/name, links (Features, How it works, FAQ), theme toggle, **Log in** button (→ `/login`) and **Sign up** button (→ `/signup`, primary style).
+2. **Hero:** strong headline (e.g. "Know your edge. Journal every trade."), one-sentence subheadline, primary CTA "Get started free" (→ `/signup`), secondary CTA "Log in". Include a stylised dashboard preview (a mock screenshot built with real components or a styled illustration; no stock photos).
+3. **Value / Benefits:** 3–6 cards, for example:
+   - All your accounts in one place
+   - Log trades in seconds
+   - See your weekly P&L at a glance
+   - Find what's working: track setups and strategies
+   - Build discipline with notes and reviews
+   - Bank-grade security: your data is private to you
+4. **How it works:** 3 steps (Create account → Add your trading accounts → Log trades & review).
+5. **Security section:** briefly explain that data is private and isolated per user.
+6. **FAQ:** 4–6 questions.
+7. **Final CTA band** + **Footer** (links, © year, placeholder Privacy/Terms pages).
+
+**Requirements:** Fast (static rendering), good SEO metadata, Open Graph tags, subtle tasteful animations only (no heavy libraries needed). If a logged-in user visits `/`, show "Go to dashboard" in the navbar instead of Log in / Sign up.
+
+### 5.2 Authentication (`/login`, `/signup`, `/forgot-password`, `/reset-password`, `/auth/callback`)
+
+**Sign up**
+
+- Fields: email, password, confirm password. Optional: display name.
+- Password policy: **minimum 12 characters**, with a live strength meter. Enforce the same policy server-side and in Supabase Auth settings.
+- **Email verification is required** before the user can access the app. After signup, show a "Check your email" screen.
+- After verification, the user lands on `/app/dashboard` and a `profiles` row is auto-created (via a DB trigger on `auth.users`).
+
+**Log in**
+
+- Email + password. Generic error on failure.
+- "Forgot password?" link.
+- Redirect to the originally requested page after login (validate the redirect is a relative internal path to prevent open redirects).
+
+**Password reset**
+
+- Request reset by email → link → `/reset-password` form → updates password → signs out other sessions where possible.
+
+**Log out**
+
+- Available from the app's user menu. Clears the session cookie server-side.
+
+**Security hardening checklist (do all of these and explain each one):**
+
+- [ ] Email confirmation ON in Supabase Auth
+- [ ] Minimum password length 12 in Supabase Auth settings
+- [ ] Leaked-password protection ON (if available on the Supabase plan)
+- [ ] Supabase Auth rate limits reviewed; add CAPTCHA (Cloudflare Turnstile or hCaptcha, both supported by Supabase) on signup, login and password reset
+- [ ] Site URL and Redirect URLs allow-listed in Supabase (localhost + production domain only)
+- [ ] Optional **two-factor authentication (TOTP authenticator app)** available in Settings. Build this as the final step of Phase 2 if time allows; otherwise list it as the first task of the next phase
+- [ ] Middleware protects `/app/*`; auth pages redirect to the dashboard if already logged in
+- [ ] RLS isolation test (rule 3.1.12) passes
+
+### 5.3 App Shell (`/app/*`)
+
+- **Sidebar** (collapsible; becomes a drawer on mobile): Dashboard, Trades, Accounts, Settings. Placeholders (disabled, "Coming soon"): Analytics, Calendar, Playbook.
+- **Top bar:** page title, "+ Log trade" quick button, theme toggle, user menu (email, Settings, Log out).
+
+### 5.4 Trading Accounts (`/app/accounts`)
+
+For Release 1, accounts are **added manually** (broker API connection is a later phase, so design the schema so it can be added).
+
+- Create / edit / archive a trading account with:
+  - Name (e.g. "FTMO 100k Challenge", "IBKR Main")
+  - Broker / prop firm (free text)
+  - Account type: `live` | `demo` | `prop_challenge` | `prop_funded`
+  - Currency (EUR, USD, GBP…; default EUR)
+  - Starting balance
+  - Start date
+- Record **deposits and withdrawals** (account transactions) so the balance stays accurate.
+- **Current balance = starting balance + deposits − withdrawals + sum of net P&L of closed trades.** Compute this in the database (a SQL view or function) so the logic lives in one place.
+
+### 5.5 Dashboard (`/app/dashboard`)
+
+Show at a glance:
+
+1. **Summary cards (top row):**
+   - Total balance across all active accounts (if accounts use different currencies, group totals by currency; do not convert in Release 1)
+   - **This week's P&L** (net, after fees), in amount and %
+   - This week's win rate (wins / closed trades)
+   - Number of trades this week
+2. **Accounts grid:** one card per active account showing name, broker, type badge, current balance, this week's P&L (green/red), and a mini sparkline of balance over the last 30 days.
+3. **Weekly P&L chart:** bar chart of daily net P&L for the current week (Mon–Sun), with the option to switch to the previous week.
+4. **Recent trades table:** last 10 trades with symbol, side, account, date, net P&L. Each row links to the trade detail.
+5. **Empty states:** if the user has no accounts, show a friendly onboarding card: "Add your first trading account" → button. If they have accounts but no trades: "Log your first trade".
+
+**Week definition:** Monday 00:00 to Sunday 23:59:59 **in the user's timezone** (stored on their profile, defaulting to the browser timezone detected at signup, e.g. `Europe/Dublin`). P&L belongs to the week in which the trade was **closed** (`exit_time`).
+
+### 5.6 Trade Logging (`/app/trades`, `/app/trades/new`, `/app/trades/[id]`)
+
+**Trade form fields:**
+
+| Field               | Type               | Required | Notes                                            |
+| ------------------- | ------------------ | -------- | ------------------------------------------------ |
+| Account             | select             | ✅       | Only the user's active accounts                  |
+| Symbol              | text               | ✅       | Uppercased (e.g. `AAPL`, `EURUSD`, `NQ`)         |
+| Asset class         | select             | ✅       | stock, option, future, forex, crypto, cfd, other |
+| Direction           | toggle             | ✅       | Long / Short                                     |
+| Status              | auto               |          | `open` if no exit, else `closed`                 |
+| Entry date & time   | datetime           | ✅       |                                                  |
+| Entry price         | number             | ✅       | > 0                                              |
+| Quantity / size     | number             | ✅       | > 0 (shares, contracts, lots, units)             |
+| Contract multiplier | number             |          | Default 1 (e.g. futures point value)             |
+| Exit date & time    | datetime           |          | Must be ≥ entry time                             |
+| Exit price          | number             |          | Required if exit time is set                     |
+| Fees / commissions  | number             |          | Default 0, ≥ 0                                   |
+| Stop loss           | number             |          | Used for R-multiple                              |
+| Take profit         | number             |          |                                                  |
+| Strategy / setup    | text + suggestions |          | e.g. "ORB", "VWAP reclaim"                       |
+| Tags                | multi-text         |          | e.g. "A+ setup", "FOMO", "revenge"               |
+| Notes               | textarea           |          | Plain text, max 5,000 chars                      |
+| Rating              | 1–5                |          | Self-rated execution quality                     |
+
+**Calculations (compute server-side / in the DB, show live preview in the form):**
+
+- Gross P&L (long) = `(exit − entry) × quantity × multiplier`
+- Gross P&L (short) = `(entry − exit) × quantity × multiplier`
+- Net P&L = `gross − fees`
+- R-multiple (if stop loss set) = `net P&L ÷ (|entry − stop| × quantity × multiplier)`
+- Result = win (net > 0), loss (net < 0), breakeven (net = 0)
+
+**Trades list page:**
+
+- Table with sorting and filters: date range, account, symbol, direction, status, result, strategy.
+- Pagination (server-side).
+- Totals row for the filtered set: number of trades, net P&L, win rate.
+- Row actions: view, edit, delete (with confirmation dialog).
+
+**Trade detail page:** all fields, computed metrics, notes, edit/delete buttons.
+
+**Quick add:** the "+ Log trade" button in the top bar opens the form in a slide-over sheet from anywhere in the app.
+
+### 5.7 Settings (`/app/settings`)
+
+- Profile: display name, timezone, default currency.
+- Appearance: theme (Light / Dark / System).
+- Security: change password, (TOTP 2FA if built), sign out of all sessions.
+- Danger zone: delete account (requires typing "DELETE" and re-entering password; deletes all of the user's data).
+
+---
+
+## 6. Database Schema (Supabase / Postgres)
+
+Create via migrations. All tables: `id uuid primary key default gen_random_uuid()`, `created_at timestamptz default now()`, `updated_at timestamptz default now()` (with update trigger), and **RLS enabled**.
+
+```
+profiles
+  id uuid PK = auth.users.id (on delete cascade)
+  display_name text
+  timezone text not null default 'UTC'
+  default_currency text not null default 'EUR'
+
+trading_accounts
+  user_id uuid not null default auth.uid() → auth.users (cascade)
+  name text not null
+  broker text
+  account_type text check in ('live','demo','prop_challenge','prop_funded')
+  currency char(3) not null
+  starting_balance numeric(18,2) not null
+  start_date date not null
+  is_archived boolean default false
+  external_provider text null      -- reserved for future broker sync
+  external_account_id text null    -- reserved for future broker sync
+
+account_transactions
+  user_id uuid not null default auth.uid()
+  account_id uuid → trading_accounts (cascade)
+  type text check in ('deposit','withdrawal')
+  amount numeric(18,2) not null check (amount > 0)
+  occurred_at timestamptz not null
+  note text
+
+trades
+  user_id uuid not null default auth.uid()
+  account_id uuid → trading_accounts (cascade)
+  symbol text not null
+  asset_class text not null
+  direction text check in ('long','short')
+  entry_time timestamptz not null
+  entry_price numeric(18,8) not null
+  quantity numeric(18,8) not null
+  multiplier numeric(18,8) not null default 1
+  exit_time timestamptz
+  exit_price numeric(18,8)
+  fees numeric(18,2) not null default 0
+  stop_loss numeric(18,8)
+  take_profit numeric(18,8)
+  strategy text
+  tags text[] default '{}'
+  notes text
+  rating smallint check between 1 and 5
+  gross_pnl numeric(18,2) generated/computed
+  net_pnl numeric(18,2) generated/computed
+  status text generated ('open' | 'closed')
+```
+
+**Also create:**
+
+- Indexes on `(user_id, exit_time)`, `(user_id, account_id)`, `(account_id)`.
+- A view/function `account_balances` returning current balance per account (must respect RLS, e.g. use `security_invoker = true` on views).
+- A trigger that creates a `profiles` row when a new `auth.users` row is inserted.
+- An RLS check that `trades.account_id` and `account_transactions.account_id` belong to the same `user_id` (users can't attach trades to someone else's account).
+- `supabase/seed.sql` with realistic demo data for local development only.
+
+---
+
+## 7. Project Structure
+
+```
+/app
+  /(marketing)/page.tsx           → landing page
+  /(auth)/login, /signup, /forgot-password, /reset-password
+  /auth/callback/route.ts
+  /app/layout.tsx                 → authenticated shell
+  /app/dashboard, /app/trades, /app/accounts, /app/settings
+/components
+  /ui                             → shadcn components
+  /marketing, /dashboard, /trades, /accounts, /layout
+/lib
+  /supabase/client.ts, server.ts, middleware.ts
+  /validation                     → Zod schemas
+  /calculations                   → P&L, R-multiple, week ranges (pure, unit-tested)
+  /format                         → currency/number/date formatting
+/supabase
+  /migrations
+  seed.sql
+/tests
+  /unit, /e2e
+proxy.ts                          → Next 16 name for middleware
+.env.example
+```
+
+---
+
+## 8. Build Phases (stop and check in after each one)
+
+**Phase 0: Setup**
+Initialise Next.js + TS + Tailwind + shadcn/ui + ESLint/Prettier, install dependencies, set up Supabase CLI for local dev, `.env.example`, `next-themes` with toggle, base layout, git init. Explain how to create the Supabase project and where to paste keys.
+✅ Done when: `npm run dev` shows a placeholder page with a working dark/light toggle.
+
+**Phase 1: Landing page**
+Build all sections from 5.1, responsive, both themes.
+✅ Done when: looks polished on mobile and desktop in both themes; Log in / Sign up buttons navigate correctly.
+
+**Phase 2: Authentication & security**
+Everything in 5.2, middleware, security headers, profiles trigger.
+✅ Done when: signup → email verify → dashboard works; logged-out users can't reach `/app/*`; the full security checklist is ticked with an explanation for each item.
+
+**Phase 3: Database & isolation tests**
+Migrations for all tables, RLS policies, balance view, generated types, seed data, **two-user isolation test**.
+✅ Done when: the isolation test passes and is part of `npm test`.
+
+**Phase 4: Accounts**
+Accounts CRUD + deposits/withdrawals + balance display.
+
+**Phase 5: Trade logging**
+Trade form (with live P&L preview), list with filters/totals, detail, edit, delete, quick-add sheet. Unit tests for all calculations (long, short, fees, multiplier, R-multiple, open trades).
+
+**Phase 6: Dashboard**
+Summary cards, accounts grid with sparklines, weekly P&L chart, recent trades, empty states. Unit tests for week-boundary logic across timezones (including a trade closed late Sunday night).
+
+**Phase 7: Polish & deploy**
+Loading skeletons, error boundaries, toasts, 404 page, accessibility pass, Lighthouse check, Playwright happy-path test (signup → add account → log trade → see it on dashboard), deploy to Vercel with production Supabase, update Supabase redirect URLs.
+
+---
+
+## 9. Future Phases (do NOT build yet; just don't block them)
+
+- Broker connections / automatic trade import (CSV import first, then broker APIs)
+- Analytics: equity curve, win rate by strategy/symbol/day/time, profit factor, expectancy, max drawdown, average R
+- P&L calendar heatmap
+- Screenshot / chart image uploads per trade (Supabase Storage with per-user RLS policies)
+- Daily journal entries (pre-market plan, post-market review, mood)
+- Playbook of setups with rules
+- Prop-firm rule tracking (daily loss limit, max drawdown, profit target)
+- Subscription billing (Stripe)
+- Multi-currency conversion
+
+---
+
+## 10. Definition of Done (every phase)
+
+- [ ] Works in **both dark and light mode**
+- [ ] Responsive on mobile and desktop
+- [ ] No TypeScript or lint errors (`npm run lint`, `npm run typecheck`)
+- [ ] Tests pass (`npm test`)
+- [ ] All new tables have RLS + policies
+- [ ] Server-side Zod validation on every mutation
+- [ ] Summary posted: what was built, how to test manually, what's next
+- [ ] Git commit made
+
+---
+
+## 11. Kickoff Prompt (paste this into Claude Code to start)
+
+```
+Read CLAUDE.md fully. Then:
+1. Summarise back to me, in plain language, what we're building and the plan.
+2. List anything you need from me (accounts to create, keys, decisions).
+3. Start Phase 0 only. Explain each step as you go since I'm still learning.
+4. Stop when Phase 0's "Done when" criteria are met and tell me how to check it.
+```
+
+**Prompts for the following phases** (use one per session or after approving the last phase):
+
+```
+Phase 0 is approved. Start Phase 1 (Landing page) from CLAUDE.md. Use the frontend-design approach: make it look distinctive and premium, not like a generic template. Stop when done.
+```
+
+```
+Start Phase 2 (Authentication & security). Go through the security checklist item by item and explain each one. Stop when done.
+```
+
+```
+Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain how they stop one user seeing another's data. Stop when the two-user isolation test passes.
+```
+
+…and so on for Phases 4–7.
+
+---
+
+## 12. Project Notes (learned during the build — keep up to date)
+
+### Versions in use (set up in Phase 0)
+- **Next.js 16.4** (App Router, Turbopack), React 19.3, Tailwind CSS v4, TypeScript strict.
+- **This Next.js is newer than most training data.** Before using an unfamiliar API, read the bundled docs in `node_modules/next/dist/docs/` (see `AGENTS.md`).
+- **Middleware is now called "Proxy"**: the file is `proxy.ts` in the project root and exports `proxy`. Wherever this document says "middleware", use proxy.
+- **Cache Components** (`cacheComponents: true`) and Partial Prefetching are enabled in `next.config.ts`. Reading cookies/headers makes a route dynamic; keep the marketing page static.
+- `LayoutProps` / `PageProps` are global types generated by Next. `npm run typecheck` runs `next typegen` first.
+- **shadcn/ui** uses the `radix-nova` style (Radix primitives, Lucide icons). Its `cn()` helper comes from the official `cn` package (shadcn's replacement for clsx + tailwind-merge). Add components with `npx shadcn@latest add <name>`.
+- **Supabase CLI** is a dev dependency: run it with `npx supabase …` or the `db:*` npm scripts. Local Supabase (`npm run db:start`) requires Docker Desktop.
+
+### Design tokens
+- Defined in `app/globals.css`. Brand accent = **electric blue** (`primary`). Semantic trading colours: `text-profit` / `bg-profit-muted`, `text-loss` / `bg-loss-muted`, `text-neutral`.
+- Numbers: add the `tabular-nums` class to every numeric value.
+
+### npm scripts
+`dev`, `build`, `lint`, `typecheck`, `format`, `format:check`, `test` (Vitest), `test:e2e` (Playwright), `db:start`, `db:stop`, `db:types`.
