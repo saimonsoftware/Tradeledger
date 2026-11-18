@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { ThemeProvider } from "@/components/theme-provider";
+import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
 // `variable` exposes each font as a CSS variable that globals.css plugs into
@@ -10,11 +11,35 @@ const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
-    default: "TradeLedger — Day trading journal",
-    template: "%s · TradeLedger",
+    default: `${siteConfig.name}: Day trading journal & account tracker`,
+    template: `%s · ${siteConfig.name}`,
   },
-  description: "Journal every trade and track all of your trading accounts in one place.",
+  description: siteConfig.description,
+  applicationName: siteConfig.name,
+  keywords: ["trading journal", "day trading", "trade log", "P&L tracker", "prop firm"],
+  openGraph: {
+    type: "website",
+    siteName: siteConfig.name,
+    title: `${siteConfig.name}: ${siteConfig.tagline}`,
+    description: siteConfig.description,
+    url: "/",
+    locale: "en_IE",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteConfig.name}: ${siteConfig.tagline}`,
+    description: siteConfig.description,
+  },
+};
+
+// Matches the browser UI (address bar on mobile) to the active theme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0b0f1a" },
+    { media: "(prefers-color-scheme: light)", color: "#fbfbfd" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

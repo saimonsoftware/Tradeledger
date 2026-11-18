@@ -434,6 +434,7 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 ## 12. Project Notes (learned during the build — keep up to date)
 
 ### Versions in use (set up in Phase 0)
+
 - **Next.js 16.4** (App Router, Turbopack), React 19.3, Tailwind CSS v4, TypeScript strict.
 - **This Next.js is newer than most training data.** Before using an unfamiliar API, read the bundled docs in `node_modules/next/dist/docs/` (see `AGENTS.md`).
 - **Middleware is now called "Proxy"**: the file is `proxy.ts` in the project root and exports `proxy`. Wherever this document says "middleware", use proxy.
@@ -443,8 +444,16 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Supabase CLI** is a dev dependency: run it with `npx supabase …` or the `db:*` npm scripts. Local Supabase (`npm run db:start`) requires Docker Desktop.
 
 ### Design tokens
+
 - Defined in `app/globals.css`. Brand accent = **electric blue** (`primary`). Semantic trading colours: `text-profit` / `bg-profit-muted`, `text-loss` / `bg-loss-muted`, `text-neutral`.
 - Numbers: add the `tabular-nums` class to every numeric value.
 
 ### npm scripts
+
 `dev`, `build`, `lint`, `typecheck`, `format`, `format:check`, `test` (Vitest), `test:e2e` (Playwright), `db:start`, `db:stop`, `db:types`.
+
+### Gotchas found in Phase 1
+
+- **`new Date()` / `Date.now()` in a prerendered Server Component fails the build** under Cache Components. Put it inside a `"use cache"` function with `cacheLife(...)` (see `components/marketing/footer.tsx`), behind `<Suspense>` + `connection()`, or in a Client Component.
+- **Pages are kept alive after navigating away** (React `<Activity>`, hidden with `display: none`). Form state survives navigation. **Auth forms must clear password fields** (reset on unmount/hide or after submit) so passwords don't linger in a hidden DOM. In tests, use `locator("h1:visible")`, since the previous page's elements are still in the DOM.
+- The "Go to dashboard" navbar variant for logged-in visitors (spec 5.1) is deferred to Phase 2. Implement it client-side so `/` stays static.

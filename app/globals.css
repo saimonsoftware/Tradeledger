@@ -168,3 +168,23 @@
     @apply font-sans;
   }
 }
+
+/* ---------- Marketing helpers ---------- */
+
+/* Faint "terminal" grid used behind the hero. Fades out towards the edges. */
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
+@layer base {
+  /* Smooth anchor scrolling, but only for people who haven't asked for reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
