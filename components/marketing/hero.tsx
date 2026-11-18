@@ -17,9 +17,14 @@ export function Hero() {
     <section aria-labelledby="hero-title" className="relative isolate overflow-hidden">
       {/* Background: terminal grid + soft brand glow */}
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-grid opacity-70" />
+      {/* Dark mode: a soft white spotlight from above, like a stage light on black */}
       <div
         aria-hidden="true"
-        className="absolute top-[28rem] left-1/2 -z-10 h-[32rem] w-[64rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[120px] dark:bg-primary/25"
+        className="absolute inset-x-0 top-0 -z-10 hidden h-[44rem] bg-[radial-gradient(ellipse_55%_50%_at_50%_0%,oklch(1_0_0/0.09),transparent)] dark:block"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute top-[30rem] left-1/2 -z-10 h-[28rem] w-[56rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[140px] dark:bg-primary/12"
       />
 
       <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 lg:pt-28">
@@ -38,7 +43,7 @@ export function Hero() {
             id="hero-title"
             className={`${reveal} mt-6 text-4xl font-semibold tracking-tight text-balance [animation-delay:80ms] sm:text-6xl lg:text-7xl`}
           >
-            Know your edge.
+            <span className="text-silver">Know your edge.</span>
             <br />
             <span className="text-muted-foreground">Journal every trade.</span>
           </h1>

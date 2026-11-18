@@ -48,7 +48,7 @@ export function Security() {
           />
         </div>
 
-        <ul className="divide-y rounded-2xl border bg-card">
+        <ul className="divide-y rounded-2xl surface">
           {points.map(({ Icon, title, body }) => (
             <li key={title} className="flex gap-4 p-5 sm:p-6">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-profit-muted text-profit">

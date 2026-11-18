@@ -31,7 +31,7 @@ function BenefitCard({
   return (
     <li
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border bg-card p-6 transition-colors hover:border-primary/40",
+        "group relative flex flex-col overflow-hidden rounded-2xl surface p-6 transition-colors hover:border-primary/40",
         className,
       )}
     >

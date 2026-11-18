@@ -7,11 +7,11 @@ export function FinalCta() {
   return (
     <section aria-labelledby="cta-title" className="border-t py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="relative isolate overflow-hidden rounded-3xl border bg-card px-6 py-14 text-center sm:px-12 sm:py-20">
+        <div className="relative isolate overflow-hidden rounded-3xl surface px-6 py-14 text-center sm:px-12 sm:py-20">
           <div aria-hidden="true" className="absolute inset-0 -z-10 bg-grid opacity-60" />
           <div
             aria-hidden="true"
-            className="absolute -top-24 left-1/2 -z-10 h-64 w-[40rem] -translate-x-1/2 rounded-full bg-primary/20 blur-[100px] dark:bg-primary/30"
+            className="absolute -top-24 left-1/2 -z-10 h-64 w-[40rem] -translate-x-1/2 rounded-full bg-primary/20 blur-[100px] dark:bg-primary/20"
           />
           <h2
             id="cta-title"

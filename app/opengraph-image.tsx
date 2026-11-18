@@ -17,7 +17,7 @@ export default function OpengraphImage() {
         flexDirection: "column",
         justifyContent: "space-between",
         padding: 72,
-        background: "linear-gradient(135deg, #0b0f1a 0%, #111a33 100%)",
+        background: "radial-gradient(ellipse at top, #1c1c1c 0%, #050505 70%)",
         color: "#f1f3f8",
         fontFamily: "sans-serif",
       }}
@@ -36,7 +36,7 @@ export default function OpengraphImage() {
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ fontSize: 76, fontWeight: 600, letterSpacing: -2 }}>Know your edge.</div>
-        <div style={{ fontSize: 76, fontWeight: 600, letterSpacing: -2, color: "#8b93a7" }}>
+        <div style={{ fontSize: 76, fontWeight: 600, letterSpacing: -2, color: "#9a9a9a" }}>
           Journal every trade.
         </div>
       </div>

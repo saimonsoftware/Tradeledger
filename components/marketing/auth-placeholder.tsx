@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 // Replaced by the real forms in Phase 2.
 export function AuthPlaceholder({ title }: { title: string }) {
   return (
-    <div className="w-full max-w-sm rounded-2xl border bg-card p-8 text-center shadow-sm">
+    <div className="w-full max-w-sm rounded-2xl surface p-8 text-center shadow-sm">
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Accounts are coming soon. This page will be ready in the next build phase.

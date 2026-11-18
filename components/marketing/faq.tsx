@@ -40,7 +40,7 @@ export function Faq() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <SectionHeading id="faq-title" eyebrow="FAQ" title="Questions, answered" />
 
-        <div className="mt-12 divide-y rounded-2xl border bg-card">
+        <div className="mt-12 divide-y rounded-2xl surface">
           {faqs.map((item) => (
             <details key={item.q} className="group px-5 sm:px-6">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-md py-5 font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
