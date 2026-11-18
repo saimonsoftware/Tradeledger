@@ -23,7 +23,12 @@ export function FinalCta() {
             Set up your first account in under two minutes.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button asChild size="lg" className="h-11 w-full px-5 text-[15px] sm:w-auto">
+            <Button
+              asChild
+              size="lg"
+              variant="contrast"
+              className="h-11 w-full px-5 text-[15px] sm:w-auto"
+            >
               <Link href="/signup">
                 Get started free <ArrowRight data-icon="inline-end" />
               </Link>
