@@ -21,7 +21,7 @@ export function SectionHeading({
       </p>
       <h2
         id={id}
-        className="mt-3 text-silver pb-1 text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
+        className="mt-3 text-silver pb-1 text-3xl font-semibold tracking-tight text-balance text-glow sm:text-4xl"
       >
         {title}
       </h2>

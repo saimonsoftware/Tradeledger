@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 // Matches the browser UI (address bar on mobile) to the active theme.
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#050505" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
     { media: "(prefers-color-scheme: light)", color: "#fbfbfd" },
   ],
 };

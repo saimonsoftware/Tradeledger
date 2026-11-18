@@ -112,7 +112,7 @@
 
 /* ---------- Dark theme (default): true black, neutral greys ---------- */
 .dark {
-  --background: oklch(0.09 0 0);
+  --background: oklch(0 0 0);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.135 0 0);
   --card-foreground: oklch(0.97 0 0);
@@ -194,6 +194,14 @@
   -webkit-text-fill-color: transparent;
 }
 
+/* Soft white glow around headings, dark mode only (a glow on light backgrounds just looks blurry).
+   Uses drop-shadow rather than text-shadow so it also works with the silver gradient text. */
+@utility text-glow {
+  &:where(.dark *) {
+    filter: drop-shadow(0 0 10px oklch(1 0 0 / 0.13));
+  }
+}
+
 /* ---------- Marketing helpers ---------- */
 
 /* Faint "terminal" grid used behind the hero. Fades out towards the edges. */
@@ -203,6 +211,10 @@
     linear-gradient(to bottom, var(--border) 1px, transparent 1px);
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+  /* Dark mode is pure black: no grid. */
+  &:where(.dark *) {
+    display: none;
+  }
 }
 
 @layer base {

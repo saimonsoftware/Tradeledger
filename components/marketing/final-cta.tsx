@@ -11,11 +11,11 @@ export function FinalCta() {
           <div aria-hidden="true" className="absolute inset-0 -z-10 bg-grid opacity-60" />
           <div
             aria-hidden="true"
-            className="absolute -top-24 left-1/2 -z-10 h-64 w-[40rem] -translate-x-1/2 rounded-full bg-primary/20 blur-[100px] dark:bg-primary/20"
+            className="absolute -top-24 left-1/2 -z-10 h-64 w-[40rem] -translate-x-1/2 rounded-full bg-primary/20 blur-[100px] dark:hidden"
           />
           <h2
             id="cta-title"
-            className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
+            className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-balance text-glow sm:text-4xl"
           >
             Your next hundred trades are data. Start recording them.
           </h2>

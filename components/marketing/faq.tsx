@@ -35,7 +35,7 @@ export function Faq() {
     <section
       id="faq"
       aria-labelledby="faq-title"
-      className="scroll-mt-20 border-t bg-muted/30 py-20 sm:py-28"
+      className="scroll-mt-20 border-t bg-muted/30 py-20 sm:py-28 dark:bg-transparent"
     >
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <SectionHeading id="faq-title" eyebrow="FAQ" title="Questions, answered" />
