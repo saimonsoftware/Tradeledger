@@ -181,7 +181,24 @@
     background-image: linear-gradient(to bottom, oklch(1 0 0 / 3%), transparent 40%);
     box-shadow:
       inset 0 1px 0 0 oklch(1 0 0 / 6%),
-      0 1px 2px oklch(0 0 0 / 40%);
+      0 1px 2px oklch(0 0 0 / 40%),
+      var(--surface-glow, 0 0 #0000);
+  }
+}
+
+/* White outer glow for cards (dark mode only). Plugs into the `surface` shadow
+   via a variable, so the card keeps its edge highlight. Brighter on hover. */
+@utility card-glow {
+  &:where(.dark *) {
+    --surface-glow: 0 0 32px oklch(1 0 0 / 0.16), 0 0 3px oklch(1 0 0 / 0.35);
+    border-color: oklch(1 0 0 / 14%);
+    transition:
+      box-shadow 300ms ease,
+      border-color 300ms ease;
+  }
+  &:where(.dark *):hover {
+    --surface-glow: 0 0 48px oklch(1 0 0 / 0.26), 0 0 4px oklch(1 0 0 / 0.5);
+    border-color: oklch(1 0 0 / 22%);
   }
 }
 
