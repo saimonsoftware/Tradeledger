@@ -28,7 +28,8 @@ export default function OpengraphImage() {
             width: 52,
             height: 52,
             borderRadius: 12,
-            background: "#3b63f0",
+            background: "#000",
+            border: "1px solid rgba(255,255,255,0.25)",
             display: "flex",
           }}
         />

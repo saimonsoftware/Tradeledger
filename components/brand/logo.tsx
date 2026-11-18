@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** The TradeLedger mark: three rising candlesticks inside a rounded tile. */
+/** The TradeLedger mark: three rising white candlesticks on a black tile. The thin light edge keeps it visible on black backgrounds. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg
@@ -9,8 +9,16 @@ export function LogoMark({ className }: { className?: string }) {
       className={cn("size-7 shrink-0", className)}
       fill="none"
     >
-      <rect width="32" height="32" rx="8" className="fill-primary" />
-      <g className="stroke-primary-foreground" strokeLinecap="round">
+      <rect
+        x="0.5"
+        y="0.5"
+        width="31"
+        height="31"
+        rx="7.5"
+        className="fill-black stroke-white/20"
+        strokeWidth="1"
+      />
+      <g className="stroke-white" strokeLinecap="round">
         <path d="M9 17v6" strokeWidth="1.5" />
         <rect
           x="7.5"
@@ -18,7 +26,7 @@ export function LogoMark({ className }: { className?: string }) {
           width="3"
           height="3.5"
           rx="0.75"
-          className="fill-primary-foreground"
+          className="fill-white"
           strokeWidth="0"
         />
         <path d="M16 11v12" strokeWidth="1.5" />
@@ -28,7 +36,7 @@ export function LogoMark({ className }: { className?: string }) {
           width="3"
           height="6.5"
           rx="0.75"
-          className="fill-primary-foreground"
+          className="fill-white"
           strokeWidth="0"
         />
         <path d="M23 7v11" strokeWidth="1.5" />
@@ -38,7 +46,7 @@ export function LogoMark({ className }: { className?: string }) {
           width="3"
           height="6.5"
           rx="0.75"
-          className="fill-primary-foreground"
+          className="fill-white"
           strokeWidth="0"
         />
       </g>

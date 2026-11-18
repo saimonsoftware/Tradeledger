@@ -37,7 +37,7 @@ export function Navbar() {
           <Button asChild variant="ghost" size="lg" className="hidden md:inline-flex">
             <Link href="/login">Log in</Link>
           </Button>
-          <Button asChild size="lg" className="px-3.5">
+          <Button asChild size="lg" variant="contrast" className="px-3.5">
             <Link href="/signup">Sign up</Link>
           </Button>
           <MobileNav />
