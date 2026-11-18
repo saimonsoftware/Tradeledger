@@ -22,7 +22,7 @@ export function Hero() {
         className="absolute top-[30rem] left-1/2 -z-10 h-[28rem] w-[56rem] -translate-x-1/2 rounded-full bg-primary/15 blur-[140px] dark:hidden"
       />
 
-      <div className="mx-auto max-w-6xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 lg:pt-28">
+      <div className="mx-auto max-w-6xl px-4 pt-12 pb-16 sm:px-6 sm:pt-24 sm:pb-20 lg:pt-28">
         <div className="mx-auto max-w-3xl text-center">
           <p
             className={`${reveal} inline-flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 font-mono text-[11px] tracking-wider text-muted-foreground uppercase backdrop-blur`}
@@ -83,14 +83,9 @@ export function Hero() {
           className={`${reveal} relative mx-auto mt-14 max-w-5xl [animation-delay:420ms] [animation-duration:1000ms] sm:mt-20`}
         >
           <DashboardPreview />
-          {/* Fade the bottom of the preview into the page */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent"
-          />
         </div>
 
-        <div className="mt-12 flex flex-col items-center gap-3 sm:flex-row sm:justify-center sm:gap-6">
+        <div className="mt-16 flex flex-col items-center gap-3 sm:mt-20 sm:flex-row sm:justify-center sm:gap-6">
           <p className="font-mono text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
             Built for
           </p>

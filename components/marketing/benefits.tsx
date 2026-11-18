@@ -67,7 +67,7 @@ export function Benefits() {
     <section
       id="features"
       aria-labelledby="features-title"
-      className="scroll-mt-20 border-t py-20 sm:py-28"
+      className="scroll-mt-20 border-t py-16 sm:py-24 lg:py-28"
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
@@ -119,7 +119,7 @@ export function Benefits() {
             }
           >
             Enter the basics and TradeLedger calculates gross and net P&amp;L, fees and your
-            R-multiple instantly.
+            R‑multiple instantly.
           </BenefitCard>
 
           <BenefitCard

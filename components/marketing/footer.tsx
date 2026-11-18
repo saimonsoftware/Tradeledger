@@ -41,8 +41,8 @@ const columns = [
 export function Footer() {
   return (
     <footer className="border-t">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.5fr_repeat(3,1fr)]">
-        <div className="max-w-xs">
+      <div className="mx-auto grid max-w-6xl grid-cols-3 gap-x-6 gap-y-10 px-4 py-12 sm:px-6 md:grid-cols-[1.5fr_repeat(3,1fr)]">
+        <div className="col-span-3 max-w-xs md:col-span-1">
           <Logo />
           <p className="mt-3 text-sm text-muted-foreground">{siteConfig.tagline}</p>
         </div>
@@ -51,12 +51,12 @@ export function Footer() {
             <h2 className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
               {col.title}
             </h2>
-            <ul className="mt-3 space-y-2 text-sm">
+            <ul className="mt-2 text-sm">
               {col.links.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-foreground/80 transition-colors hover:text-foreground"
+                    className="inline-block py-2 text-foreground/80 transition-colors hover:text-foreground md:py-1"
                   >
                     {link.label}
                   </Link>

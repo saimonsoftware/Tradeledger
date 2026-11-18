@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export function FinalCta() {
   return (
-    <section aria-labelledby="cta-title" className="border-t py-20 sm:py-28">
+    <section aria-labelledby="cta-title" className="border-t py-16 sm:py-24 lg:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="relative isolate overflow-hidden rounded-3xl surface px-6 py-14 text-center sm:px-12 sm:py-20">
           <div aria-hidden="true" className="absolute inset-0 -z-10 bg-grid opacity-60" />

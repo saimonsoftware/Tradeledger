@@ -16,7 +16,7 @@ const points = [
   {
     Icon: Cookie,
     title: "Secure sessions",
-    body: "You stay signed in with secure, http-only cookies that page scripts can't read.",
+    body: "You stay signed in with secure, http‑only cookies that page scripts can't read.",
   },
   {
     Icon: MailCheck,
@@ -35,7 +35,7 @@ export function Security() {
     <section
       id="security"
       aria-labelledby="security-title"
-      className="scroll-mt-20 border-t py-20 sm:py-28"
+      className="scroll-mt-20 border-t py-16 sm:py-24 lg:py-28"
     >
       <div className="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.2fr] lg:gap-16">
         <div className="lg:sticky lg:top-28 lg:self-start">

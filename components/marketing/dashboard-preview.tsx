@@ -118,7 +118,7 @@ export function DashboardPreview() {
     <div
       role="img"
       aria-label="Preview of the TradeLedger dashboard showing account balances, this week's profit and loss, a daily P&L chart and recent trades."
-      className="overflow-hidden rounded-xl surface text-left shadow-2xl ring-1 shadow-primary/10 ring-black/5 select-none dark:shadow-black/60 dark:ring-white/10"
+      className="overflow-hidden rounded-xl surface preview-glow text-left select-none"
     >
       <div aria-hidden="true">
         {/* Window chrome */}
