@@ -36,7 +36,9 @@ export function Hero() {
 
           <h1
             id="hero-title"
-            className={`${reveal} mt-6 text-4xl font-semibold tracking-tight text-balance text-foreground [animation-delay:80ms] hero-glow sm:text-6xl lg:text-7xl`}
+            // No entrance animation: this headline is the Largest Contentful Paint element,
+            // so it must render immediately (a fade-in delayed LCP to ~3.9s).
+            className="mt-6 text-4xl font-semibold tracking-tight text-balance text-foreground hero-glow sm:text-6xl lg:text-7xl"
           >
             Know your edge.
             <br />

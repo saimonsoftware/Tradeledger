@@ -132,6 +132,7 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
           <p className="text-xs text-muted-foreground">Execution</p>
           <p
             className="mt-1.5 flex gap-0.5"
+            role="img"
             aria-label={trade.rating ? `${trade.rating} out of 5` : "Not rated"}
           >
             {[1, 2, 3, 4, 5].map((n) => (

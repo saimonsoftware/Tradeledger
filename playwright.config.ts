@@ -1,10 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// End-to-end tests drive a real browser against the running app.
-// They're added in Phase 7; this config is here so the structure is ready.
+// End-to-end tests drive a real browser against the running app (npm run test:e2e).
 export default defineConfig({
   testDir: "./tests/e2e",
-  fullyParallel: true,
+  // Tests share test user A, so run them one at a time.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",

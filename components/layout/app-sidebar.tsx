@@ -128,21 +128,24 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="TradeLedger">
-              <Link href="/app/dashboard" onClick={() => setOpenMobile(false)}>
-                <LogoMark className="size-7" />
-                <span className="font-semibold tracking-tight">TradeLedger</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <Suspense fallback={<NavGroups pathname={null} />}>
-        <ActiveNavGroups />
-      </Suspense>
+      {/* <nav> landmark: lets screen-reader users jump straight to the app navigation. */}
+      <nav aria-label="App" className="flex min-h-0 flex-1 flex-col">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild size="lg" tooltip="TradeLedger">
+                <Link href="/app/dashboard" onClick={() => setOpenMobile(false)}>
+                  <LogoMark className="size-7" />
+                  <span className="font-semibold tracking-tight">TradeLedger</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <Suspense fallback={<NavGroups pathname={null} />}>
+          <ActiveNavGroups />
+        </Suspense>
+      </nav>
       <SidebarRail />
     </Sidebar>
   );

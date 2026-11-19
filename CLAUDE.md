@@ -508,6 +508,15 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - Unique ids across layouts: only the marketing layout uses `id="main"` (skip link); the app content is `#app-content`.
 
 ### Settings & sessions (Phase 7)
+
 - Account deletion uses `delete_my_account()` (SECURITY DEFINER, no args, deletes only `auth.uid()`, cascades). No service_role key. The Server Action re-verifies the password first (`lib/supabase/verify-password.ts`, a throwaway client so the real session is untouched).
 - **Revoked sessions are rejected immediately:** Supabase access tokens stay valid until expiry (≤1h) after "sign out everywhere"/password change. `session_is_active()` checks `auth.sessions` for the token's `session_id`; the proxy (app + guest-only routes) and the DAL both call it. Covered by `tests/integration/sessions.test.ts`.
 - Sensitive actions (change password, delete account) require the current password.
+
+### Quality gates (Phase 7)
+
+- `npm run test:e2e` (Playwright, `tests/e2e/`) covers signup-neutrality → account → trade → dashboard. It runs serially (shared test user) and cleans up.
+- Accessibility: axe-core (`@axe-core/playwright`) found 0 violations on all pages in both themes. Rules learned: app sidebar content sits inside `<nav aria-label="App">`; `aria-label` on a non-interactive element needs a role (e.g. `role="img"`); light-mode `--destructive` darkened for 4.5:1.
+- Lighthouse (prod build): landing 91/100/96/100, login 99/100/96/100, signup 93/100/96/100. **Never animate the hero `<h1>`**: it's the LCP element.
+- Error pages use the `retry()` prop (Next 16), not `reset()`. `app/app/not-found.tsx` renders inside the app shell.
+- Test-script gotcha: never wait with `waitForURL("**/app/dashboard")` (it matches `/login?next=/app/dashboard`); use a regex anchored with `$`.
