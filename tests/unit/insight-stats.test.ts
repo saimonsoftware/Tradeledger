@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   computeInsightStats,
   groupStats,
+  type GroupStats,
   holdingBucket,
   MIN_SAMPLE,
+  sessionOf,
   type StatTrade,
 } from "@/lib/insights/stats";
 
@@ -71,6 +73,53 @@ describe("holdingBucket", () => {
     ["2026-11-16T14:30:00Z", "2026-11-18T14:30:00Z", "over 1 day"],
   ])("%s → %s = %s", (a, b, expected) => {
     expect(holdingBucket(a, b)).toBe(expected);
+  });
+
+  it("skips trades without a real exit time (exit = entry)", () => {
+    expect(holdingBucket("2026-11-16T14:30:00Z", "2026-11-16T14:30:00Z")).toBeNull();
+    const s = computeInsightStats(
+      [t({ exitTime: "2026-11-16T14:30:00Z" }), t({ exitTime: "2026-11-16T14:30:00Z" })],
+      "UTC",
+    );
+    expect(s.byHoldingTime).toEqual([]);
+  });
+});
+
+describe("sessionOf (New York time, daylight saving aware)", () => {
+  it.each([
+    // November: New York is UTC-5
+    ["2026-11-16T14:30:00Z", "New York AM"], // 09:30 NY
+    ["2026-11-16T18:00:00Z", "New York PM"], // 13:00 NY
+    ["2026-11-16T09:00:00Z", "London"], // 04:00 NY
+    ["2026-11-16T03:00:00Z", "Asia"], // 22:00 NY
+    ["2026-11-16T22:30:00Z", "After hours"], // 17:30 NY
+    // July: New York is UTC-4, so 13:30 UTC is still 09:30 NY
+    ["2026-07-13T13:30:00Z", "New York AM"],
+  ])("%s → %s", (iso, expected) => {
+    expect(sessionOf(iso)).toBe(expected);
+  });
+});
+
+describe("strategy combinations", () => {
+  it("shows where and when each setup works", () => {
+    const s = computeInsightStats(
+      [
+        t({ strategy: "ORB", symbol: "NQ", netPnl: 200, rMultiple: 2 }),
+        t({ strategy: "ORB", symbol: "NQ", netPnl: 100, rMultiple: 1 }),
+        t({ strategy: "ORB", symbol: "EURUSD", netPnl: -50, rMultiple: -1, direction: "short" }),
+        t({ strategy: null, symbol: "EURUSD", netPnl: 10, entryTime: "2026-11-16T09:00:00Z" }),
+      ],
+      "UTC",
+    );
+    const key = (g: GroupStats[]) => Object.fromEntries(g.map((x) => [x.key, x]));
+    const bySym = key(s.byStrategySymbol);
+    expect(bySym["ORB · NQ"]).toMatchObject({ trades: 2, wins: 2, avgR: 1.5 });
+    expect(bySym["ORB · EURUSD"]).toMatchObject({ trades: 1, losses: 1, avgR: -1 });
+    expect(bySym["(no strategy) · EURUSD"].trades).toBe(1);
+    expect(key(s.byStrategyDirection)["ORB · short"].trades).toBe(1);
+    expect(key(s.byStrategySession)["ORB · New York AM"].trades).toBe(3);
+    expect(s.bySession.map((g) => g.key)).toEqual(["London", "New York AM"]);
+    expect(s.definitions.sessions).toMatch(/New York time/);
   });
 });
 

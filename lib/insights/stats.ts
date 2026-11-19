@@ -59,7 +59,16 @@ export type InsightStats = {
   byAssetClass: GroupStats[];
   byWeekday: GroupStats[];
   byHour: GroupStats[];
+  /** Only trades with a real exit time (older trades); empty for trades logged without one. */
   byHoldingTime: GroupStats[];
+  /** Market session of the entry, in New York time (see SESSION_NOTE). */
+  bySession: GroupStats[];
+  /** Combinations: keys look like "ORB · NQ". Find which setup works where and when. */
+  byStrategySymbol: GroupStats[];
+  byStrategyDirection: GroupStats[];
+  byStrategySession: GroupStats[];
+  /** Plain-language definitions sent along with the numbers. */
+  definitions: Record<string, string>;
   byRating: GroupStats[];
   /** The trade taken right after a losing trade, vs after a winning one ("revenge trading"). */
   afterLoss: GroupStats | null;
@@ -117,8 +126,30 @@ function groupBy(
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export function holdingBucket(entryIso: string, exitIso: string): string {
+// Trading sessions by NEW YORK time (follows US daylight saving automatically).
+// The same for every trader, whatever their own timezone, because markets keep NY hours.
+export const SESSIONS = ["Asia", "London", "New York AM", "New York PM", "After hours"] as const;
+export const SESSION_NOTE =
+  "Sessions by entry time in New York time: Asia 19:00–03:00, London 03:00–08:00, New York AM 08:00–12:00, New York PM 12:00–17:00, After hours 17:00–19:00.";
+
+export function sessionOf(entryIso: string): (typeof SESSIONS)[number] {
+  const hour = Number(formatInTimeZone(entryIso, "America/New_York", "H"));
+  if (hour >= 19 || hour < 3) return "Asia";
+  if (hour < 8) return "London";
+  if (hour < 12) return "New York AM";
+  if (hour < 17) return "New York PM";
+  return "After hours";
+}
+
+const strategyOf = (t: StatTrade) => t.strategy?.trim() || "(no strategy)";
+const bySessionOrder = (a: GroupStats, b: GroupStats) =>
+  SESSIONS.indexOf(a.key as (typeof SESSIONS)[number]) -
+  SESSIONS.indexOf(b.key as (typeof SESSIONS)[number]);
+
+/** null when there's no real exit time (trades now close at their entry time). */
+export function holdingBucket(entryIso: string, exitIso: string): string | null {
   const minutes = (new Date(exitIso).getTime() - new Date(entryIso).getTime()) / 60_000;
+  if (!(minutes > 0)) return null;
   if (minutes < 5) return "under 5 min";
   if (minutes < 30) return "5–30 min";
   if (minutes < 120) return "30 min–2 h";
@@ -204,7 +235,7 @@ export function computeInsightStats(
       profitFactorByCurrency,
       ...streaks(sorted),
     },
-    byStrategy: groupBy(sorted, (t) => t.strategy?.trim() || "(no strategy)"),
+    byStrategy: groupBy(sorted, strategyOf),
     byTag: groupBy(sorted, (t) => (t.tags.length ? t.tags : null)),
     bySymbol: groupBy(sorted, (t) => t.symbol),
     byDirection: groupBy(sorted, (t) => t.direction),
@@ -216,10 +247,22 @@ export function computeInsightStats(
       (a, b) => a.key.localeCompare(b.key),
     ),
     byHoldingTime: groupBy(sorted, (t) => holdingBucket(t.entryTime, t.exitTime)),
+    bySession: groupBy(sorted, (t) => sessionOf(t.entryTime)).sort(bySessionOrder),
+    byStrategySymbol: groupBy(sorted, (t) => `${strategyOf(t)} · ${t.symbol}`),
+    byStrategyDirection: groupBy(sorted, (t) => `${strategyOf(t)} · ${t.direction}`),
+    byStrategySession: groupBy(sorted, (t) => `${strategyOf(t)} · ${sessionOf(t.entryTime)}`),
     byRating: groupBy(sorted, (t) => (t.rating ? `${t.rating}★` : "unrated")).sort((a, b) =>
       a.key.localeCompare(b.key),
     ),
     afterLoss: afterLossTrades.length ? groupStats("after a loss", afterLossTrades) : null,
     afterWin: afterWinTrades.length ? groupStats("after a win", afterWinTrades) : null,
+    definitions: {
+      avgR: "Average of the Trade RR the trader entered (result in multiples of the amount risked). rCount = trades with an RR.",
+      sessions: SESSION_NOTE,
+      combinations:
+        'byStrategySymbol / byStrategyDirection / byStrategySession keys are "strategy · symbol/direction/session".',
+      holdingTime:
+        "byHoldingTime only covers trades with a recorded exit time; trades logged without one are not included.",
+    },
   };
 }
