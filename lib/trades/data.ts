@@ -8,7 +8,7 @@ import { getProfile } from "@/lib/profile/data";
 import { listTradeScreenshots } from "@/lib/screenshots/storage";
 import { createClient } from "@/lib/supabase/server";
 
-import { TRADES_PAGE_SIZE } from "./constants";
+import { STRATEGIES, TRADES_PAGE_SIZE } from "./constants";
 import type { TradeFilters } from "./filters";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -123,20 +123,18 @@ export async function getTradeFormOptions(client?: Client) {
   await requireUser();
   const { timezone } = await getProfile();
   const supabase = client ?? (await createClient());
-  const [accounts, strategies] = await Promise.all([
-    supabase
-      .from("trading_accounts")
-      .select("id, name, currency, is_archived")
-      .order("created_at", { ascending: true }),
-    supabase.from("trades").select("strategy").not("strategy", "is", null).limit(1000),
-  ]);
+  const accounts = await supabase
+    .from("trading_accounts")
+    .select("id, name, currency, is_archived")
+    .order("created_at", { ascending: true });
   return {
     timezone,
     // "Now" as a wall-clock time in the user's timezone, for the default entry time.
     // Computed on the server after the session read (so it's request-time data).
     nowLocal: formatInTimeZone(new Date(), timezone, "yyyy-MM-dd'T'HH:mm"),
     accounts: accounts.data ?? [],
-    strategies: [...new Set((strategies.data ?? []).map((s) => s.strategy!))].sort(),
+    // The fixed list of setups (form dropdown and list filter).
+    strategies: [...STRATEGIES] as string[],
   };
 }
 

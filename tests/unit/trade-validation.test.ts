@@ -13,7 +13,7 @@ const base: TradeInput = {
   rr: "2.5",
   stopLoss: "",
   takeProfit: "",
-  strategy: " ORB ",
+  strategy: " FBOs ",
   tags: "A+ setup, patient, A+ setup,",
   notes: "",
   rating: "4",
@@ -26,7 +26,7 @@ describe("tradeSchema", () => {
     expect(r.entryPrice).toBe("21480");
     expect(r.netPnl).toBe("391.60");
     expect(r.stopLoss).toBeNull();
-    expect(r.strategy).toBe("ORB");
+    expect(r.strategy).toBe("FBOs");
     expect(r.tags).toEqual(["A+ setup", "patient"]);
     expect(r.notes).toBeNull();
     expect(r.rating).toBe(4);
@@ -128,8 +128,14 @@ describe("tradeSchema", () => {
     ["pnlAmount", "abc"],
     ["pnlSide", "maybe"],
     ["rating", "6"],
+    ["strategy", "ORB"],
   ] as const)("rejects %s = %j", (field, value) => {
     expect(tradeSchema.safeParse({ ...base, [field]: value }).success).toBe(false);
+  });
+
+  it("strategy is optional", () => {
+    expect(tradeSchema.parse({ ...base, strategy: "" }).strategy).toBeNull();
+    expect(tradeSchema.parse({ ...base, strategy: "Mitigation" }).strategy).toBe("Mitigation");
   });
 
   it("limits tags and notes", () => {

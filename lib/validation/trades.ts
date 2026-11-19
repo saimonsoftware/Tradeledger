@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { checkLevel, tradeResult } from "@/lib/calculations/rr";
-import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS } from "@/lib/trades/constants";
+import { DIRECTIONS, MAX_TAGS, PNL_SIDES, STRATEGIES, SYMBOLS } from "@/lib/trades/constants";
 
 // Prices: up to 10 integer digits and 8 decimals (numeric(18,8)).
 // Kept as STRINGS end-to-end and sent to Postgres as text, so even values with
@@ -92,12 +92,17 @@ export const tradeSchema = z
     stopLoss: optionalPositiveDecimal("SL price"),
     // The trader gets out at the TP on a win and at the SL on a loss.
     takeProfit: optionalPositiveDecimal("TP price"),
+    // One of the set strategies, or none.
     strategy: z
       .string()
-      .trim()
-      .max(100, "Keep the strategy under 100 characters")
       .optional()
-      .transform((s) => s || null),
+      .transform((s) => s?.trim() ?? "")
+      .pipe(
+        z.union([
+          z.literal("").transform(() => null),
+          z.enum(STRATEGIES, { message: "Choose a setup from the list" }),
+        ]),
+      ),
     tags: z
       .string()
       .max(1000)

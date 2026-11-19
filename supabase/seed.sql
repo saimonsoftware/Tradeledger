@@ -31,7 +31,7 @@ declare
   dir text;
   t_in timestamptz;
   t_out timestamptz;
-  strategies text[] := array['ORB', 'VWAP reclaim', 'Pullback', 'Breakout', 'Mean reversion'];
+  strategies text[] := array['FBOs', 'Mitigation'];
   tag_pool text[] := array['A+ setup', 'FOMO', 'followed plan', 'revenge', 'news', 'patient'];
   base_px numeric;
 begin

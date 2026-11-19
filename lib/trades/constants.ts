@@ -5,6 +5,10 @@ export type TradeSymbol = (typeof SYMBOLS)[number];
 /** Used by the AI Coach's asset-class breakdown. Older trades may have other symbols. */
 export const SYMBOL_ASSET_CLASS: Record<string, string> = { EURUSD: "forex", NQ: "future" };
 
+/** Setups the trader can pick in the trade form (optional). */
+export const STRATEGIES = ["FBOs", "Mitigation"] as const;
+export type Strategy = (typeof STRATEGIES)[number];
+
 export const DIRECTIONS = ["long", "short"] as const;
 export const RESULTS = ["win", "loss", "breakeven"] as const;
 export const STATUSES = ["open", "closed"] as const;

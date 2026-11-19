@@ -97,6 +97,8 @@ function useLevels(control: Control<TradeInput, unknown, TradeOutput>) {
   };
 }
 
+const NO_SETUP = "__none";
+
 /** "25" → "+25", "-10" → "−10" (true minus sign). */
 const signed = (n: string) => (n.startsWith("-") ? `\u2212${n.slice(1)}` : n === "0" ? n : `+${n}`);
 
@@ -559,18 +561,35 @@ export function TradeForm({
             <div className="grid gap-4 @lg:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor={f("strategy")}>Strategy / setup {optional}</Label>
-                <Input
-                  id={f("strategy")}
-                  list={f("strategy-list")}
-                  placeholder="e.g. ORB, VWAP reclaim"
-                  autoComplete="off"
-                  {...register("strategy")}
+                <Controller
+                  control={control}
+                  name="strategy"
+                  render={({ field: fld }) => (
+                    <Select
+                      // Radix Select can't use "" as an item value, so "none" stands for no setup.
+                      value={fld.value ? fld.value : NO_SETUP}
+                      onValueChange={(v) => fld.onChange(v === NO_SETUP ? "" : v)}
+                    >
+                      <SelectTrigger
+                        id={f("strategy")}
+                        className="w-full"
+                        aria-invalid={!!errors.strategy}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_SETUP}>
+                          <span className="text-muted-foreground">No setup</span>
+                        </SelectItem>
+                        {strategies.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
-                <datalist id={f("strategy-list")}>
-                  {strategies.map((s) => (
-                    <option key={s} value={s} />
-                  ))}
-                </datalist>
                 <FieldError id={f("strategy-error")} message={errors.strategy?.message} />
               </div>
 

@@ -106,6 +106,8 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(sheet.locator("output")).toContainText("+2.00R");
   await expect(sheet.locator("output")).toContainText("+40 points");
   await expect(sheet.getByText("+US$123.00").filter({ visible: true }).first()).toBeVisible();
+  await sheet.getByLabel(/Strategy/).click();
+  await page.getByRole("option", { name: "FBOs" }).click();
   // Attach a screenshot before saving (uploaded right after the trade is created).
   await sheet.locator('input[type="file"]').setInputFiles({
     name: "chart.png",
@@ -125,6 +127,7 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(page.getByRole("button", { name: "View screenshot 1" })).toBeVisible();
   await expect(page.getByLabel("Results")).toContainText("+2.00R");
   await expect(page.getByLabel("Results")).toContainText("+40 points");
+  await expect(page.getByText("FBOs")).toBeVisible();
   await expect(page.getByText("21,460 · 20 points")).toBeVisible();
   await expect(page.getByText("21,520 · 40 points")).toBeVisible();
 
