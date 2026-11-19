@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { checkLevel, suggestedRr } from "@/lib/calculations/rr";
+import { checkStop, suggestedRr, tradeRrFromPrices } from "@/lib/calculations/rr";
 import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS } from "@/lib/trades/constants";
 
 // Prices: up to 10 integer digits and 8 decimals (numeric(18,8)).
@@ -90,6 +90,7 @@ export const tradeSchema = z
         ]),
       ),
     stopLoss: optionalPositiveDecimal("SL price"),
+    // The TP price is where the trader got out (their exit).
     takeProfit: optionalPositiveDecimal("TP price"),
     strategy: z
       .string()
@@ -128,26 +129,33 @@ export const tradeSchema = z
       .pipe(z.union([z.null(), z.number().int().min(1).max(5)])),
   })
   .superRefine((t, ctx) => {
-    // The stop must be on the losing side of the entry, the target on the winning side.
-    const levels = [
-      ["sl", "stopLoss", t.stopLoss],
-      ["tp", "takeProfit", t.takeProfit],
-    ] as const;
-    for (const [kind, path, price] of levels) {
-      const check = checkLevel(kind, t.direction, t.entryPrice, price);
-      const name = kind === "sl" ? "SL" : "TP";
-      const side = (kind === "tp") === (t.direction === "long") ? "above" : "below";
-      if (check === "at-entry") {
+    // The stop must be on the losing side of the entry. (The TP is where the trader
+    // got out, so it can be on either side.)
+    const stop = checkStop(t.direction, t.entryPrice, t.stopLoss);
+    if (stop === "at-entry") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stopLoss"],
+        message: "SL can't equal the entry price",
+      });
+    } else if (stop === "wrong-side") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["stopLoss"],
+        message: `For a ${t.direction}, the SL must be ${t.direction === "long" ? "below" : "above"} the entry price`,
+      });
+    }
+
+    // The TP (exit) price must agree with the Profit/Loss choice.
+    const fromPrices = tradeRrFromPrices(t.direction, t.entryPrice, t.stopLoss, t.takeProfit);
+    if (fromPrices !== null && t.pnlAmount !== null && Number(t.pnlAmount) !== 0) {
+      const r = Number(fromPrices);
+      const chosen = t.pnlSide === "loss" ? -1 : 1;
+      if (r !== 0 && Math.sign(r) !== chosen) {
         ctx.addIssue({
           code: "custom",
-          path: [path],
-          message: `${name} can't equal the entry price`,
-        });
-      } else if (check === "wrong-side") {
-        ctx.addIssue({
-          code: "custom",
-          path: [path],
-          message: `For a ${t.direction}, the ${name} must be ${side} the entry price`,
+          path: ["pnlSide"],
+          message: `Your TP price shows a ${r > 0 ? "win" : "loss"} (${r > 0 ? "+" : ""}${fromPrices}R) but you chose ${t.pnlSide === "loss" ? "Loss" : "Profit"}.`,
         });
       }
     }
@@ -163,7 +171,7 @@ export const tradeSchema = z
   })
   .transform(({ pnlAmount, pnlSide, rr, ...rest }) => {
     // The RR the trader typed (or that the form filled in); if empty, the server
-    // works it out the same way: TP hit on a win, SL hit (−1R) on a loss.
+    // works it out the same way: from the TP (exit) price, or −1R for a loss at the SL.
     const rrValue =
       rr ??
       suggestedRr({

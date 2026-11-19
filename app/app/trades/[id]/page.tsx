@@ -10,7 +10,7 @@ import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeScreenshots } from "@/components/trades/trade-screenshots";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PIP_LABEL, pipsBetween, plannedRr } from "@/lib/calculations/rr";
+import { movePips, PIP_LABEL, pipsBetween } from "@/lib/calculations/rr";
 import { formatPrice, formatR } from "@/lib/format/number";
 import { getProfile } from "@/lib/profile/data";
 import type { TradeSymbol } from "@/lib/trades/constants";
@@ -35,28 +35,23 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
     iso ? formatInTimeZone(iso, timezone, "EEE d MMM yyyy, HH:mm") : "—";
   const entry = String(trade.entry_price);
   const unit = trade.symbol in PIP_LABEL ? ` ${PIP_LABEL[trade.symbol as TradeSymbol]}` : "";
-  const level = (price: number | null) => {
-    if (price === null) return "—";
-    const pips = pipsBetween(trade.symbol, entry, String(price));
-    return (
+  const withPips = (price: number | null, pips: string | null) =>
+    price === null ? (
+      "—"
+    ) : (
       <>
         {formatPrice(price)}
         {pips && (
           <span className="text-muted-foreground">
             {" "}
-            · {pips}
+            · {pips.startsWith("-") ? `\u2212${pips.slice(1)}` : pips}
             {unit}
           </span>
         )}
       </>
     );
-  };
-  const planned = plannedRr(
-    trade.direction as "long" | "short",
-    entry,
-    trade.stop_loss === null ? null : String(trade.stop_loss),
-    trade.take_profit === null ? null : String(trade.take_profit),
-  );
+  const sl = trade.stop_loss === null ? null : String(trade.stop_loss);
+  const tp = trade.take_profit === null ? null : String(trade.take_profit);
   const net = trade.net_pnl === null ? null : Number(trade.net_pnl);
   const result = net === null ? "Open" : net > 0 ? "Win" : net < 0 ? "Loss" : "Breakeven";
 
@@ -64,9 +59,14 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
     ["Account", trade.account?.name ?? "—"],
     ["Entry time", fmtTime(trade.entry_time)],
     ["Entry price", formatPrice(trade.entry_price)],
-    ["Stop loss (SL)", level(trade.stop_loss)],
-    ["Take profit (TP)", level(trade.take_profit)],
-    ["Planned RR", planned ? `1 : ${planned}` : "—"],
+    ["Stop loss (SL)", withPips(trade.stop_loss, pipsBetween(trade.symbol, entry, sl))],
+    [
+      "Take profit (TP, exit)",
+      withPips(
+        trade.take_profit,
+        movePips(trade.symbol, trade.direction as "long" | "short", entry, tp),
+      ),
+    ],
     ["Strategy", trade.strategy ?? "—"],
   ];
 
@@ -133,10 +133,8 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
           <p className="mt-1 text-lg font-medium tabular-nums">{formatPrice(trade.entry_price)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Planned RR</p>
-          <p className="mt-1 text-lg font-medium tabular-nums">
-            {planned ? `1 : ${planned}` : "—"}
-          </p>
+          <p className="text-xs text-muted-foreground">TP (exit)</p>
+          <p className="mt-1 text-lg font-medium tabular-nums">{formatPrice(trade.take_profit)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Execution</p>

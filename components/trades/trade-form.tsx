@@ -20,7 +20,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createTrade, updateTrade } from "@/lib/trades/actions";
-import { checkLevel, PIP_LABEL, pipsBetween, plannedRr, suggestedRr } from "@/lib/calculations/rr";
+import {
+  checkStop,
+  movePips,
+  PIP_LABEL,
+  pipsBetween,
+  suggestedRr,
+  tradeRrFromPrices,
+} from "@/lib/calculations/rr";
 import { formatR } from "@/lib/format/number";
 import type { Screenshot } from "@/lib/screenshots/storage";
 import { SYMBOLS } from "@/lib/trades/constants";
@@ -75,17 +82,13 @@ function levelsFor(v: {
   pnlSide: "profit" | "loss";
   pnlAmount?: string;
 }) {
-  const level = (kind: "sl" | "tp", price?: string) => {
-    const check = checkLevel(kind, v.direction, v.entry, price ?? null);
-    return {
-      check,
-      pips: check === "ok" ? pipsBetween(v.symbol, v.entry, price ?? null) : null,
-    };
-  };
+  const slOk = checkStop(v.direction, v.entry, v.stopLoss ?? null) === "ok";
   return {
-    sl: level("sl", v.stopLoss),
-    tp: level("tp", v.takeProfit),
-    planned: plannedRr(v.direction, v.entry, v.stopLoss ?? null, v.takeProfit ?? null),
+    slPips: slOk ? pipsBetween(v.symbol, v.entry, v.stopLoss ?? null) : null,
+    /** Signed: + in the trade's favour. */
+    tpPips: movePips(v.symbol, v.direction, v.entry, v.takeProfit ?? null),
+    /** Signed RR from prices (needs SL and TP). */
+    priceRr: tradeRrFromPrices(v.direction, v.entry, v.stopLoss ?? null, v.takeProfit ?? null),
     suggested: suggestedRr({
       direction: v.direction,
       entryPrice: v.entry,
@@ -96,6 +99,9 @@ function levelsFor(v: {
     }),
   };
 }
+
+/** "25" → "+25", "-0.5" → "−0.5" (true minus sign). */
+const signed = (n: string) => (n.startsWith("-") ? `\u2212${n.slice(1)}` : n === "0" ? n : `+${n}`);
 
 /** The Trade RR as it will be saved: signed like the P&L. */
 function useRr(control: Control<TradeInput, unknown, TradeOutput>, pnl: number | null) {
@@ -439,17 +445,17 @@ export function TradeForm({
                 "stopLoss",
                 <>SL price {optional}</>,
                 { inputMode: "decimal", className: "tabular-nums" },
-                levels.sl.pips
-                  ? `SL: ${levels.sl.pips} ${unit}`
+                levels.slPips
+                  ? `SL: ${levels.slPips} ${unit}`
                   : `${direction === "short" ? "Above" : "Below"} the entry price`,
               )}
               {field(
                 "takeProfit",
-                <>TP price {optional}</>,
+                <>TP price (your exit) {optional}</>,
                 { inputMode: "decimal", className: "tabular-nums" },
-                levels.tp.pips
-                  ? `TP: ${levels.tp.pips} ${unit}${levels.planned ? ` · planned 1 : ${levels.planned}` : ""}`
-                  : `${direction === "short" ? "Below" : "Above"} the entry price`,
+                levels.tpPips
+                  ? `TP: ${signed(levels.tpPips)} ${unit}${levels.priceRr ? ` · ${signed(levels.priceRr)}R` : ""}`
+                  : "Where you got out of the trade",
               )}
               <div className="space-y-2 @lg:col-span-2">
                 <span id={f("pnl-label")} className="text-sm font-medium">
@@ -542,7 +548,7 @@ export function TradeForm({
                 {!errors.rr && (
                   <p id={f("rr-hint")} className="text-xs text-muted-foreground">
                     {!rrManual && levels.suggested !== null
-                      ? "Calculated: a profit hit your TP, a loss hit your SL (−1R). Type over it if you closed early."
+                      ? "Calculated from your entry, SL and TP prices (no TP on a loss = SL hit, −1R). You can type over it."
                       : "Fills in from your SL and TP prices, or type it in. A loss is counted as −R automatically."}
                   </p>
                 )}

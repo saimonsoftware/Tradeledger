@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { checkLevel, pipsBetween, plannedRr, suggestedRr } from "@/lib/calculations/rr";
+import {
+  checkStop,
+  movePips,
+  pipsBetween,
+  suggestedRr,
+  tradeRrFromPrices,
+} from "@/lib/calculations/rr";
 
 describe("pipsBetween (EURUSD pips, NQ points)", () => {
   it.each([
@@ -20,37 +26,51 @@ describe("pipsBetween (EURUSD pips, NQ points)", () => {
   });
 });
 
-describe("checkLevel", () => {
-  it("long: SL below, TP above; short: the reverse", () => {
-    expect(checkLevel("sl", "long", "100", "95")).toBe("ok");
-    expect(checkLevel("sl", "long", "100", "105")).toBe("wrong-side");
-    expect(checkLevel("tp", "long", "100", "110")).toBe("ok");
-    expect(checkLevel("sl", "short", "100", "105")).toBe("ok");
-    expect(checkLevel("tp", "short", "100", "110")).toBe("wrong-side");
-    expect(checkLevel("tp", "short", "100", "100")).toBe("at-entry");
-    expect(checkLevel("sl", "long", "100", null)).toBe("missing");
+describe("movePips (signed: + in the trade's favour)", () => {
+  it.each([
+    ["EURUSD", "short", "1.0852", "1.0827", "25"],
+    ["EURUSD", "short", "1.0852", "1.0857", "-5"],
+    ["NQ", "long", "21480", "21520", "40"],
+    ["NQ", "long", "21480", "21470.5", "-9.5"],
+    ["NQ", "long", "21480", "21480", "0"],
+  ] as const)("%s %s %s → %s = %s", (sym, dir, entry, exit, expected) => {
+    expect(movePips(sym, dir, entry, exit)).toBe(expected);
   });
 });
 
-describe("plannedRr (exact decimal maths)", () => {
+describe("checkStop", () => {
+  it("long: SL below the entry; short: above", () => {
+    expect(checkStop("long", "100", "95")).toBe("ok");
+    expect(checkStop("long", "100", "105")).toBe("wrong-side");
+    expect(checkStop("short", "100", "105")).toBe("ok");
+    expect(checkStop("short", "100", "100")).toBe("at-entry");
+    expect(checkStop("long", "100", null)).toBe("missing");
+  });
+});
+
+describe("tradeRrFromPrices (TP = exit, exact decimal maths)", () => {
   it.each([
     ["long", "21480", "21460", "21530", "2.50"],
-    ["short", "1.0852", "1.0862", "1.0822", "3.00"],
+    ["short", "1.0852", "1.0862", "1.0827", "2.50"],
+    ["short", "1.0852", "1.0862", "1.0857", "-0.50"],
+    ["long", "21480", "21460", "21460", "-1.00"],
     ["long", "100", "97", "101", "0.33"],
     ["long", "100", "97", "102", "0.67"],
+    ["long", "100", "92", "99", "-0.13"],
     // Floats would give 2.9999…; exact maths gives 3.
     ["long", "1.0852", "1.0851", "1.0855", "3.00"],
-  ] as const)("%s entry %s SL %s TP %s = 1:%s", (dir, entry, sl, tp, expected) => {
-    expect(plannedRr(dir, entry, sl, tp)).toBe(expected);
+  ] as const)("%s entry %s SL %s TP %s = %sR", (dir, entry, sl, tp, expected) => {
+    expect(tradeRrFromPrices(dir, entry, sl, tp)).toBe(expected);
   });
 
-  it("is null when a level is missing or on the wrong side", () => {
-    expect(plannedRr("long", "100", null, "110")).toBeNull();
-    expect(plannedRr("long", "100", "105", "110")).toBeNull();
+  it("is null without a valid SL and TP", () => {
+    expect(tradeRrFromPrices("long", "100", null, "110")).toBeNull();
+    expect(tradeRrFromPrices("long", "100", "105", "110")).toBeNull();
+    expect(tradeRrFromPrices("long", "100", "95", null)).toBeNull();
   });
 });
 
-describe("suggestedRr", () => {
+describe("suggestedRr (unsigned; Profit/Loss gives the sign)", () => {
   const base = {
     direction: "long" as const,
     entryPrice: "21480",
@@ -60,16 +80,16 @@ describe("suggestedRr", () => {
     pnlAmount: "500",
   };
 
-  it("profit = TP hit → planned RR; loss = SL hit → 1; breakeven → 0", () => {
+  it("uses the TP (exit) price when given", () => {
     expect(suggestedRr(base)).toBe("2.50");
-    expect(suggestedRr({ ...base, pnlSide: "loss" })).toBe("1.00");
-    expect(suggestedRr({ ...base, pnlAmount: "0" })).toBe("0");
+    expect(suggestedRr({ ...base, takeProfit: "21470", pnlSide: "loss" })).toBe("0.50");
   });
 
-  it("needs the P&L, and the levels it uses", () => {
-    expect(suggestedRr({ ...base, pnlAmount: "" })).toBeNull();
-    expect(suggestedRr({ ...base, takeProfit: null })).toBeNull();
+  it("loss with no TP = SL hit; breakeven = 0; otherwise unknown", () => {
     expect(suggestedRr({ ...base, takeProfit: null, pnlSide: "loss" })).toBe("1.00");
-    expect(suggestedRr({ ...base, stopLoss: null, pnlSide: "loss" })).toBeNull();
+    expect(suggestedRr({ ...base, pnlAmount: "0" })).toBe("0");
+    expect(suggestedRr({ ...base, takeProfit: null })).toBeNull();
+    expect(suggestedRr({ ...base, pnlAmount: "" })).toBeNull();
+    expect(suggestedRr({ ...base, stopLoss: null, takeProfit: null, pnlSide: "loss" })).toBeNull();
   });
 });

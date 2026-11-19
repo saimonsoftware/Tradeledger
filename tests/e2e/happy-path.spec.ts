@@ -99,10 +99,10 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await sheet.getByLabel(/SL price/).fill("21460");
   await sheet.getByLabel(/TP price/).fill("21520");
   await expect(sheet.getByText("SL: 20 points")).toBeVisible();
-  await expect(sheet.getByText(/TP: 40 points · planned 1 : 2.00/)).toBeVisible();
+  await expect(sheet.getByText("TP: +40 points · +2.00R")).toBeVisible();
   await sheet.getByRole("radio", { name: /Profit/ }).click();
   await sheet.getByLabel(/^Amount/).fill("123");
-  // A profit means the TP was hit: the RR fills in as 40 ÷ 20 = 2.
+  // TP is the exit: the RR fills in as 40 ÷ 20 = 2.
   await expect(sheet.getByLabel(/Trade RR/)).toHaveValue("2.00");
   await expect(sheet.getByText("+US$123.00").filter({ visible: true }).first()).toBeVisible();
   // Attach a screenshot before saving (uploaded right after the trade is created).
