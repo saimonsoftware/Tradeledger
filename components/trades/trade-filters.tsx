@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SYMBOLS } from "@/lib/trades/constants";
 import { hasActiveFilters, type TradeFilters as Filters } from "@/lib/trades/filters";
 
 const selectClass =
@@ -51,13 +52,14 @@ export function TradeFilters({
         </label>
         <label>
           <span className={labelClass}>Symbol</span>
-          <Input
-            name="symbol"
-            defaultValue={filters.symbol}
-            placeholder="Any"
-            autoCapitalize="characters"
-            className="uppercase placeholder:normal-case"
-          />
+          <select name="symbol" defaultValue={filters.symbol ?? ""} className={selectClass}>
+            <option value="">All</option>
+            {SYMBOLS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           <span className={labelClass}>Side</span>

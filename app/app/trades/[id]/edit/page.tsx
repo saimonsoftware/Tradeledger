@@ -6,7 +6,7 @@ import { Suspense } from "react";
 
 import { TradeFormPage } from "@/components/trades/trade-form-page";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTrade, getTradeFormOptions } from "@/lib/trades/data";
+import { getScreenshotsForTrade, getTrade, getTradeFormOptions } from "@/lib/trades/data";
 import { tradeToFormValues } from "@/lib/trades/form-values";
 import { idSchema } from "@/lib/validation/accounts";
 
@@ -17,12 +17,14 @@ async function EditTrade({ params }: { params: PageProps<"/app/trades/[id]/edit"
   if (!idSchema.safeParse(id).success) notFound();
   const [trade, options] = await Promise.all([getTrade(id), getTradeFormOptions()]);
   if (!trade) notFound();
+  const screenshots = await getScreenshotsForTrade(trade.id);
 
   // Active accounts, plus this trade's own account even if it's archived.
   const accounts = options.accounts.filter((a) => !a.is_archived || a.id === trade.account_id);
   return (
     <TradeFormPage
       tradeId={trade.id}
+      screenshots={screenshots}
       accounts={accounts}
       strategies={options.strategies}
       timezone={options.timezone}

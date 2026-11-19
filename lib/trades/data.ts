@@ -5,6 +5,7 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 import { requireUser } from "@/lib/auth/dal";
 import { getProfile } from "@/lib/profile/data";
+import { listTradeScreenshots } from "@/lib/screenshots/storage";
 import { createClient } from "@/lib/supabase/server";
 
 import { TRADES_PAGE_SIZE } from "./constants";
@@ -13,7 +14,7 @@ import type { TradeFilters } from "./filters";
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 const LIST_COLUMNS =
-  "id, symbol, asset_class, direction, entry_time, exit_time, entry_price, exit_price, quantity, net_pnl, r_multiple, status, strategy, account:trading_accounts(id, name, currency)";
+  "id, symbol, direction, entry_time, exit_time, entry_price, exit_price, net_pnl, status, strategy, account:trading_accounts(id, name, currency)";
 
 /**
  * Applies the list filters to a trades query. Date filters are calendar days in
@@ -111,6 +112,12 @@ export async function getTrade(id: string) {
 }
 
 export type TradeDetail = NonNullable<Awaited<ReturnType<typeof getTrade>>>;
+
+/** The current user's screenshots for one trade, with short-lived view links. */
+export async function getScreenshotsForTrade(tradeId: string) {
+  const user = await requireUser();
+  return listTradeScreenshots(await createClient(), user.id, tradeId);
+}
 
 export async function getTradeFormOptions(client?: Client) {
   await requireUser();

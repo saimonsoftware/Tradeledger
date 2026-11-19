@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import type { Screenshot } from "@/lib/screenshots/storage";
 import type { TradeInput } from "@/lib/validation/trades";
 
 import { TradeForm, type TradeFormAccount } from "./trade-form";
@@ -14,6 +15,7 @@ export function TradeFormPage(props: {
   timezone: string;
   defaultValues: TradeInput;
   tradeId?: string;
+  screenshots?: Screenshot[];
 }) {
   const router = useRouter();
   return (

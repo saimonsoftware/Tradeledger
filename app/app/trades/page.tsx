@@ -77,7 +77,7 @@ async function TradesContent({
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             {filtered
               ? "Try widening the date range or clearing a filter."
-              : "Record entry, exit, size and fees. P&L and R-multiple are calculated for you."}
+              : "Record your entry, exit and profit or loss, and add chart screenshots."}
           </p>
           {!filtered && (
             <Button asChild variant="contrast" className="mt-6 h-10 px-4">

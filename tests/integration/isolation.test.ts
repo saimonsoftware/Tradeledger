@@ -88,15 +88,11 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
       .insert({
         account_id: aAccountId,
         symbol: "NQ",
-        asset_class: "future",
         direction: "long",
         entry_time: "2026-11-16T14:30:00Z",
         entry_price: 21480,
-        quantity: 2,
-        multiplier: 20,
-        exit_time: "2026-11-16T15:00:00Z",
         exit_price: 21500,
-        fees: 8.4,
+        net_pnl: 791.6,
         stop_loss: 21470,
         notes: "A's private note",
       })
@@ -121,6 +117,10 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
 
   afterAll(async () => {
     if (!A || !B) return;
+    // Storage files aren't removed by the database cascade.
+    const shots = A.storage.from("trade-screenshots");
+    const { data: files } = await shots.list(`${aId}/${aTradeId}`);
+    if (files?.length) await shots.remove(files.map((f) => `${aId}/${aTradeId}/${f.name}`));
     await A.from("ai_reports").delete().eq("user_id", aId); // also removes their chat messages
     await A.from("coach_conversations").delete().eq("user_id", aId);
     await A.from("trading_rules").delete().eq("user_id", aId);
@@ -132,14 +132,27 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
 
   // ---------------------------------------------------------------- sanity
   describe("User A (the owner)", () => {
-    it("can read their own data, with P&L computed by the database", async () => {
+    it("can read their own data; status and close time are derived by the database", async () => {
       const { data, error } = await A.from("trades").select("*").eq("id", aTradeId).single();
       expect(error).toBeNull();
-      expect(Number(data!.gross_pnl)).toBe(800);
       expect(Number(data!.net_pnl)).toBe(791.6);
-      expect(Number(data!.r_multiple)).toBe(1.98);
       expect(data!.status).toBe("closed");
+      // A closed trade counts on its entry date.
+      expect(new Date(data!.exit_time!).toISOString()).toBe("2026-11-16T14:30:00.000Z");
       expect(data!.user_id).toBe(aId);
+    });
+
+    it("cannot set the derived columns or log an unsupported symbol", async () => {
+      const derived = await A.from("trades").update({ status: "open" }).eq("id", aTradeId).select();
+      expect(derived.error).not.toBeNull();
+      const symbol = await A.from("trades").insert({
+        account_id: aAccountId,
+        symbol: "AAPL",
+        direction: "long",
+        entry_time: new Date().toISOString(),
+        entry_price: 100,
+      });
+      expect(symbol.error).not.toBeNull();
     });
 
     it("sees the correct balance (10000 + 500 + 791.60)", async () => {
@@ -194,15 +207,15 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
   describe("User B cannot UPDATE User A's data", () => {
     it("trade", async () => {
       const { data } = await B.from("trades")
-        .update({ fees: 9999, notes: "hacked" })
+        .update({ net_pnl: -9999, notes: "hacked" })
         .eq("id", aTradeId)
         .select();
       expect(data).toEqual([]);
       const { data: still } = await A.from("trades")
-        .select("fees, notes")
+        .select("net_pnl, notes")
         .eq("id", aTradeId)
         .single();
-      expect(Number(still!.fees)).toBe(8.4);
+      expect(Number(still!.net_pnl)).toBe(791.6);
       expect(still!.notes).toBe("A's private note");
     });
 
@@ -246,12 +259,10 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
     it("cannot add a trade to A's account", async () => {
       const { error } = await B.from("trades").insert({
         account_id: aAccountId,
-        symbol: "ES",
-        asset_class: "future",
+        symbol: "NQ", // an allowed symbol, so only ownership can make this fail
         direction: "short",
         entry_time: new Date().toISOString(),
         entry_price: 5000,
-        quantity: 1,
       });
       expect(error).not.toBeNull();
     });
@@ -412,6 +423,79 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
             .select()
         ).error,
       ).not.toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------- screenshots (Storage)
+  describe("Trade screenshots are private", () => {
+    // A 1x1 PNG.
+    const png = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      ),
+      (c) => c.charCodeAt(0),
+    );
+    const bucket = "trade-screenshots";
+    let aPath = "";
+
+    beforeAll(async () => {
+      aPath = `${aId}/${aTradeId}/${crypto.randomUUID()}.png`;
+      const { error } = await A.storage
+        .from(bucket)
+        .upload(aPath, png, { contentType: "image/png" });
+      expect(error).toBeNull();
+    });
+
+    it("the owner can view their screenshot", async () => {
+      const { data, error } = await A.storage.from(bucket).download(aPath);
+      expect(error).toBeNull();
+      expect(data!.size).toBe(png.length);
+    });
+
+    it("B cannot list, download or get a link to A's screenshot", async () => {
+      const list = await B.storage.from(bucket).list(`${aId}/${aTradeId}`);
+      expect(list.data ?? []).toEqual([]);
+      expect((await B.storage.from(bucket).download(aPath)).error).not.toBeNull();
+      expect((await B.storage.from(bucket).createSignedUrl(aPath, 60)).error).not.toBeNull();
+    });
+
+    it("B cannot delete A's screenshot", async () => {
+      const { data } = await B.storage.from(bucket).remove([aPath]);
+      expect(data ?? []).toEqual([]);
+      expect((await A.storage.from(bucket).download(aPath)).error).toBeNull();
+    });
+
+    it("B cannot upload into A's folder, or attach to A's trade from their own folder", async () => {
+      const intoA = await B.storage
+        .from(bucket)
+        .upload(`${aId}/${aTradeId}/${crypto.randomUUID()}.png`, png, { contentType: "image/png" });
+      expect(intoA.error).not.toBeNull();
+      const ownFolder = await B.storage
+        .from(bucket)
+        .upload(`${bId}/${aTradeId}/${crypto.randomUUID()}.png`, png, { contentType: "image/png" });
+      expect(ownFolder.error).not.toBeNull();
+    });
+
+    it("rejects files that aren't images", async () => {
+      const { error } = await A.storage
+        .from(bucket)
+        .upload(`${aId}/${aTradeId}/${crypto.randomUUID()}.html`, "<script>", {
+          contentType: "text/html",
+        });
+      expect(error).not.toBeNull();
+    });
+
+    it("allows at most 6 screenshots per trade (enforced by the database)", async () => {
+      const up = () =>
+        A.storage.from(bucket).upload(`${aId}/${aTradeId}/${crypto.randomUUID()}.png`, png, {
+          contentType: "image/png",
+        });
+      for (let i = 0; i < 5; i++) expect((await up()).error).toBeNull(); // 6 in total now
+      expect((await up()).error).not.toBeNull();
+    });
+
+    it("a logged-out visitor cannot read it", async () => {
+      expect((await anon.storage.from(bucket).download(aPath)).error).not.toBeNull();
     });
   });
 

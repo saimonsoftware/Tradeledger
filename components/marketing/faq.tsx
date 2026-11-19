@@ -14,7 +14,7 @@ const faqs = [
   },
   {
     q: "Which markets can I journal?",
-    a: "Stocks, options, futures, forex, crypto and CFDs. A contract multiplier setting handles futures point values, so P&L is always calculated correctly.",
+    a: "EURUSD and NQ (Nasdaq-100 futures). Log your entry and exit, the profit or loss, and attach chart screenshots to every trade.",
   },
   {
     q: "Does it work for prop firm accounts?",

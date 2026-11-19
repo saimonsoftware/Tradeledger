@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Star } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch, type Control } from "react-hook-form";
+import { toast } from "sonner";
 
 import { FieldError, FormMessage } from "@/components/common/form-message";
 import { SignedAmount } from "@/components/common/signed-amount";
@@ -18,13 +19,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { calcTrade, type Direction } from "@/lib/calculations/trade";
-import { formatCurrency } from "@/lib/format/currency";
 import { createTrade, updateTrade } from "@/lib/trades/actions";
-import { ASSET_CLASS_LABELS, ASSET_CLASSES } from "@/lib/trades/constants";
+import type { Screenshot } from "@/lib/screenshots/storage";
+import { SYMBOLS } from "@/lib/trades/constants";
 import { useFieldIds } from "@/lib/use-field-ids";
 import { cn } from "@/lib/utils";
 import { tradeSchema, type TradeInput, type TradeOutput } from "@/lib/validation/trades";
+
+import {
+  PendingScreenshots,
+  TradeScreenshots,
+  uploadScreenshot,
+  type PendingScreenshot,
+} from "./trade-screenshots";
 
 export type TradeFormAccount = { id: string; name: string; currency: string; is_archived: boolean };
 
@@ -34,155 +41,120 @@ type Props = {
   timezone: string;
   defaultValues: TradeInput;
   tradeId?: string;
+  /** Existing screenshots (edit mode). */
+  screenshots?: Screenshot[];
   onSaved: (id: string) => void;
   onCancel?: () => void;
 };
 
-const num = (s: string | undefined) => {
-  const n = Number((s ?? "").replace(/,/g, "").trim());
-  return s && Number.isFinite(n) ? n : null;
-};
+/** The P&L as typed (amount + Profit/Loss), or null while the trade is open. */
+function usePnl(control: Control<TradeInput, unknown, TradeOutput>) {
+  const [amount, side] = useWatch({ control, name: ["pnlAmount", "pnlSide"] });
+  const n = Number((amount ?? "").replace(/,/g, "").trim());
+  if (!amount?.trim() || !Number.isFinite(n)) return null;
+  return side === "loss" ? -Math.abs(n) : Math.abs(n);
+}
 
-/** Live P&L preview, mirroring the database formulas (lib/calculations/trade.ts). */
-function TradePreview({
+const resultLabel = (pnl: number | null) =>
+  pnl === null ? "Open" : pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "Breakeven";
+
+/** Summary beside the form on wide layouts. */
+function TradeSummary({
   control,
   currency,
 }: {
   control: Control<TradeInput, unknown, TradeOutput>;
   currency: string;
 }) {
-  const v = useWatch({ control });
-  const entry = num(v.entryPrice);
-  const qty = num(v.quantity);
-  const calc =
-    entry && qty
-      ? calcTrade({
-          direction: (v.direction as Direction) ?? "long",
-          entryPrice: entry,
-          quantity: qty,
-          multiplier: num(v.multiplier) ?? 1,
-          exitPrice: num(v.exitPrice),
-          fees: num(v.fees) ?? 0,
-          stopLoss: num(v.stopLoss),
-        })
-      : null;
-
-  const row = (label: string, value: React.ReactNode) => (
-    <div className="flex items-center justify-between gap-3 py-1.5">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium tabular-nums">{value}</dd>
-    </div>
-  );
-  const dash = <span className="text-muted-foreground">—</span>;
-
-  const resultLabel =
-    calc?.result === "win"
-      ? "Win"
-      : calc?.result === "loss"
-        ? "Loss"
-        : calc?.result === "breakeven"
-          ? "Breakeven"
-          : null;
-
+  const pnl = usePnl(control);
   return (
-    <aside
-      aria-label="Live P&L preview"
-      className="rounded-xl surface p-4 text-sm"
-      aria-live="polite"
-    >
+    <aside aria-label="Trade summary" className="rounded-xl surface p-4 text-sm" aria-live="polite">
       <div className="flex items-center justify-between">
-        <p className="font-medium">Preview</p>
+        <p className="font-medium">Summary</p>
         <span
           className={cn(
             "rounded-md px-2 py-0.5 text-xs font-medium",
-            calc?.status === "closed" ? "bg-muted text-foreground" : "bg-primary/10 text-primary",
+            pnl === null ? "bg-primary/10 text-primary" : "bg-muted text-foreground",
           )}
         >
-          {calc?.status === "closed" ? (resultLabel ?? "Closed") : "Open"}
+          {resultLabel(pnl)}
         </span>
       </div>
-      <dl className="mt-2 divide-y">
-        {row(
-          "Gross P&L",
-          calc?.grossPnl != null ? (
-            <SignedAmount value={calc.grossPnl} currency={currency} showIcon={false} />
-          ) : (
-            dash
-          ),
+      <p className="mt-3 text-xs text-muted-foreground">Profit / loss</p>
+      <p className="mt-0.5 text-2xl font-semibold">
+        {pnl === null ? (
+          <span className="text-muted-foreground">—</span>
+        ) : (
+          <SignedAmount value={pnl} currency={currency} />
         )}
-        {row("Fees", formatCurrency(num(v.fees) ?? 0, currency))}
-        {row(
-          "Net P&L",
-          calc?.netPnl != null ? <SignedAmount value={calc.netPnl} currency={currency} /> : dash,
-        )}
-        {row("Risk (to stop)", calc?.risk != null ? formatCurrency(calc.risk, currency) : dash)}
-        {row(
-          "R-multiple",
-          calc?.rMultiple != null ? (
-            <span
-              className={calc.rMultiple > 0 ? "text-profit" : calc.rMultiple < 0 ? "text-loss" : ""}
-            >
-              {calc.rMultiple > 0 ? "+" : calc.rMultiple < 0 ? "−" : ""}
-              {Math.abs(calc.rMultiple).toFixed(2)}R
-            </span>
-          ) : (
-            dash
-          ),
-        )}
-      </dl>
+      </p>
       <p className="mt-3 text-xs text-muted-foreground">
-        {calc?.status === "closed"
-          ? "Saved values are calculated by the database."
-          : "Add an exit price and time to close the trade."}
+        {pnl === null
+          ? "Leave the P&L empty while the trade is still open."
+          : "Counts towards your P&L on the entry date."}
       </p>
     </aside>
   );
 }
 
-/** One-line preview pinned to the bottom on narrow layouts (slide-over, phones). */
-function CompactPreview({
+/** One-line summary pinned to the bottom on narrow layouts (slide-over, phones). */
+function CompactSummary({
   control,
   currency,
 }: {
   control: Control<TradeInput, unknown, TradeOutput>;
   currency: string;
 }) {
-  const v = useWatch({ control });
-  const entry = num(v.entryPrice);
-  const qty = num(v.quantity);
-  const calc =
-    entry && qty
-      ? calcTrade({
-          direction: (v.direction as Direction) ?? "long",
-          entryPrice: entry,
-          quantity: qty,
-          multiplier: num(v.multiplier) ?? 1,
-          exitPrice: num(v.exitPrice),
-          fees: num(v.fees) ?? 0,
-          stopLoss: num(v.stopLoss),
-        })
-      : null;
+  const pnl = usePnl(control);
   return (
     <div className="min-w-0 flex-1 text-sm" aria-live="polite">
-      <p className="text-xs text-muted-foreground">Net P&amp;L</p>
-      <p className="flex items-baseline gap-2 truncate">
-        {calc?.netPnl != null ? (
-          <SignedAmount value={calc.netPnl} currency={currency} className="text-base" />
+      <p className="text-xs text-muted-foreground">Profit / loss</p>
+      <p className="truncate">
+        {pnl === null ? (
+          <span className="text-muted-foreground">Open trade</span>
         ) : (
-          <span className="text-muted-foreground">{calc ? "Open trade" : "—"}</span>
-        )}
-        {calc?.rMultiple != null && (
-          <span
-            className={cn(
-              "text-xs tabular-nums",
-              calc.rMultiple > 0 ? "text-profit" : calc.rMultiple < 0 ? "text-loss" : "",
-            )}
-          >
-            {calc.rMultiple > 0 ? "+" : calc.rMultiple < 0 ? "\u2212" : ""}
-            {Math.abs(calc.rMultiple).toFixed(2)}R
-          </span>
+          <SignedAmount value={pnl} currency={currency} className="text-base" />
         )}
       </p>
+    </div>
+  );
+}
+
+/** Two-option toggle (radio group), used for Direction and Profit/Loss. */
+function Toggle<T extends string>({
+  value,
+  onChange,
+  options,
+  labelledBy,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: React.ReactNode; activeClass?: string }[];
+  labelledBy: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-labelledby={labelledBy}
+      className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
+    >
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "h-8 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            value === o.value
+              ? cn("bg-background text-foreground shadow-sm", o.activeClass)
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -193,11 +165,14 @@ export function TradeForm({
   timezone,
   defaultValues,
   tradeId,
+  screenshots,
   onSaved,
   onCancel,
 }: Props) {
   const f = useFieldIds();
   const [serverError, setServerError] = useState<string | null>(null);
+  // New trades: screenshots wait in the browser until the trade is saved.
+  const [pending, setPending] = useState<PendingScreenshot[]>([]);
   const {
     register,
     handleSubmit,
@@ -223,6 +198,17 @@ export function TradeForm({
         setError(result.field as keyof TradeInput, { message: result.error });
       }
       return setServerError(result.error);
+    }
+    if (!tradeId && pending.length) {
+      for (const p of pending) {
+        const error = await uploadScreenshot(result.id, p.blob);
+        if (error) {
+          toast.error(`Trade saved, but a screenshot failed: ${error}`);
+          break;
+        }
+      }
+      pending.forEach((p) => URL.revokeObjectURL(p.url));
+      setPending([]);
     }
     onSaved(result.id);
   };
@@ -299,34 +285,26 @@ export function TradeForm({
                 <FieldError id={f("accountId-error")} message={errors.accountId?.message} />
               </div>
 
-              {field("symbol", "Symbol", {
-                placeholder: "e.g. AAPL, EURUSD, NQ",
-                autoCapitalize: "characters",
-                autoComplete: "off",
-                spellCheck: false,
-                className: "uppercase placeholder:normal-case",
-              })}
-
-              <div className="space-y-2">
-                <Label htmlFor={f("assetClass")}>Asset class</Label>
+              <div className="space-y-2 @lg:col-span-2">
+                <span id={f("symbol-label")} className="text-sm font-medium">
+                  Symbol
+                </span>
                 <Controller
                   control={control}
-                  name="assetClass"
+                  name="symbol"
                   render={({ field: fld }) => (
-                    <Select value={fld.value} onValueChange={fld.onChange}>
-                      <SelectTrigger id={f("assetClass")} className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ASSET_CLASSES.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {ASSET_CLASS_LABELS[c]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Toggle
+                      value={fld.value}
+                      onChange={fld.onChange}
+                      labelledBy={f("symbol-label")}
+                      options={SYMBOLS.map((s) => ({
+                        value: s,
+                        label: <span className="font-mono">{s}</span>,
+                      }))}
+                    />
                   )}
                 />
+                <FieldError id={f("symbol-error")} message={errors.symbol?.message} />
               </div>
 
               <div className="space-y-2 @lg:col-span-2">
@@ -337,29 +315,15 @@ export function TradeForm({
                   control={control}
                   name="direction"
                   render={({ field: fld }) => (
-                    <div
-                      role="radiogroup"
-                      aria-labelledby={f("direction-label")}
-                      className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1"
-                    >
-                      {(["long", "short"] as const).map((d) => (
-                        <button
-                          key={d}
-                          type="button"
-                          role="radio"
-                          aria-checked={fld.value === d}
-                          onClick={() => fld.onChange(d)}
-                          className={cn(
-                            "h-8 rounded-md text-sm font-medium capitalize transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                            fld.value === d
-                              ? "bg-background text-foreground shadow-sm"
-                              : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          {d === "long" ? "↗ Long" : "↘ Short"}
-                        </button>
-                      ))}
-                    </div>
+                    <Toggle
+                      value={fld.value}
+                      onChange={fld.onChange}
+                      labelledBy={f("direction-label")}
+                      options={[
+                        { value: "long", label: "↗ Long" },
+                        { value: "short", label: "↘ Short" },
+                      ]}
+                    />
                   )}
                 />
               </div>
@@ -369,47 +333,72 @@ export function TradeForm({
           <fieldset className={section}>
             <legend className={legend}>Entry</legend>
             <div className="grid gap-4 @lg:grid-cols-2">
-              {field(
-                "entryTime",
-                "Entry date & time",
-                { type: "datetime-local" },
-                `Your timezone: ${timezone}`,
-              )}
+              <div className="@lg:col-span-2">
+                {field(
+                  "entryTime",
+                  "Entry date & time",
+                  { type: "datetime-local" },
+                  `Your timezone: ${timezone}`,
+                )}
+              </div>
               {field("entryPrice", "Entry price", {
                 inputMode: "decimal",
                 className: "tabular-nums",
               })}
-              {field(
-                "quantity",
-                "Quantity / size",
-                { inputMode: "decimal", className: "tabular-nums" },
-                "Shares, contracts, lots or units",
-              )}
-              {field(
-                "multiplier",
-                "Contract multiplier",
-                { inputMode: "decimal", className: "tabular-nums" },
-                "1 for stocks. Futures: point value (e.g. NQ = 20)",
-              )}
-            </div>
-          </fieldset>
-
-          <fieldset className={section}>
-            <legend className={legend}>Exit</legend>
-            <p className="-mt-1 text-xs text-muted-foreground">
-              Leave empty if the trade is still open.
-            </p>
-            <div className="grid gap-4 @2xl:grid-cols-3">
-              {field("exitTime", <>Exit date &amp; time</>, { type: "datetime-local" })}
-              {field("exitPrice", "Exit price", {
+              {field("exitPrice", <>Exit price {optional}</>, {
                 inputMode: "decimal",
                 className: "tabular-nums",
               })}
-              {field("fees", <>Fees / commissions {optional}</>, {
-                inputMode: "decimal",
-                placeholder: "0.00",
-                className: "tabular-nums",
-              })}
+              <div className="space-y-2 @lg:col-span-2">
+                <span id={f("pnl-label")} className="text-sm font-medium">
+                  Profit or loss
+                </span>
+                <div className="grid gap-2 @lg:grid-cols-2">
+                  <Controller
+                    control={control}
+                    name="pnlSide"
+                    render={({ field: fld }) => (
+                      <Toggle
+                        value={fld.value}
+                        onChange={fld.onChange}
+                        labelledBy={f("pnl-label")}
+                        options={[
+                          { value: "profit", label: "+ Profit", activeClass: "text-profit" },
+                          { value: "loss", label: "− Loss", activeClass: "text-loss" },
+                        ]}
+                      />
+                    )}
+                  />
+                  <div className="relative">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground"
+                    >
+                      {currency}
+                    </span>
+                    <label htmlFor={f("pnlAmount")} className="sr-only">
+                      Amount ({currency})
+                    </label>
+                    <Input
+                      id={f("pnlAmount")}
+                      aria-invalid={!!errors.pnlAmount}
+                      aria-describedby={
+                        errors.pnlAmount ? f("pnlAmount-error") : f("pnlAmount-hint")
+                      }
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      className="pl-12 tabular-nums"
+                      {...register("pnlAmount")}
+                    />
+                  </div>
+                </div>
+                {!errors.pnlAmount && (
+                  <p id={f("pnlAmount-hint")} className="text-xs text-muted-foreground">
+                    The amount you made or lost, after fees. Leave empty if the trade is still open.
+                  </p>
+                )}
+                <FieldError id={f("pnlAmount-error")} message={errors.pnlAmount?.message} />
+              </div>
             </div>
           </fieldset>
 
@@ -420,13 +409,22 @@ export function TradeForm({
                 "stopLoss",
                 <>Stop loss {optional}</>,
                 { inputMode: "decimal", className: "tabular-nums" },
-                "Used to calculate your R-multiple",
+                "For your records",
               )}
               {field("takeProfit", <>Take profit {optional}</>, {
                 inputMode: "decimal",
                 className: "tabular-nums",
               })}
             </div>
+          </fieldset>
+
+          <fieldset className={section}>
+            <legend className={legend}>Screenshots</legend>
+            {tradeId ? (
+              <TradeScreenshots tradeId={tradeId} screenshots={screenshots ?? []} />
+            ) : (
+              <PendingScreenshots value={pending} onChange={setPending} />
+            )}
           </fieldset>
 
           <fieldset className={section}>
@@ -535,9 +533,9 @@ export function TradeForm({
           </fieldset>
         </div>
 
-        {/* Wide layouts: full preview panel beside the form. */}
+        {/* Wide layouts: summary panel beside the form. */}
         <div className="hidden space-y-3 @3xl:sticky @3xl:top-20 @3xl:block @3xl:self-start">
-          <TradePreview control={control} currency={currency} />
+          <TradeSummary control={control} currency={currency} />
           <Button type="submit" variant="contrast" className="h-10 w-full" disabled={isSubmitting}>
             {isSubmitting ? "Saving…" : tradeId ? "Save changes" : "Log trade"}
           </Button>
@@ -548,9 +546,9 @@ export function TradeForm({
           )}
         </div>
 
-        {/* Narrow layouts: compact live preview + submit, pinned to the bottom. */}
+        {/* Narrow layouts: compact summary + submit, pinned to the bottom. */}
         <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t bg-popover/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur @3xl:hidden">
-          <CompactPreview control={control} currency={currency} />
+          <CompactSummary control={control} currency={currency} />
           {onCancel && (
             <Button type="button" variant="ghost" className="h-10" onClick={onCancel}>
               Cancel

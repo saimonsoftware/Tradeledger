@@ -25,7 +25,8 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' blob: data:",
+  // Supabase: trade screenshots, shown through short-lived signed links.
+  `img-src 'self' blob: data: ${supabaseOrigin}`.trim(),
   "font-src 'self'",
   `connect-src 'self' ${supabaseOrigin} ${supabaseWs}`.trim(),
   "frame-src 'none'",
@@ -61,6 +62,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // Trade screenshots are uploaded through a Server Action. Images are shrunk in
+    // the browser first; 4 MB stays under Vercel's 4.5 MB request limit.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

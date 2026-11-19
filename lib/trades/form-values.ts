@@ -5,15 +5,11 @@ import type { TradeInput } from "@/lib/validation/trades";
 type TradeLike = {
   account_id: string;
   symbol: string;
-  asset_class: string;
   direction: string;
   entry_time: string;
   entry_price: number;
-  quantity: number;
-  multiplier: number;
-  exit_time: string | null;
   exit_price: number | null;
-  fees: number;
+  net_pnl: number | null;
   stop_loss: number | null;
   take_profit: number | null;
   strategy: string | null;
@@ -28,16 +24,13 @@ const local = (iso: string, tz: string) => formatInTimeZone(iso, tz, "yyyy-MM-dd
 export function emptyTradeValues(nowLocal: string, accountId = ""): TradeInput {
   return {
     accountId,
-    symbol: "",
-    assetClass: "stock",
+    symbol: "EURUSD",
     direction: "long",
     entryTime: nowLocal,
     entryPrice: "",
-    quantity: "",
-    multiplier: "1",
-    exitTime: "",
     exitPrice: "",
-    fees: "",
+    pnlAmount: "",
+    pnlSide: "profit",
     stopLoss: "",
     takeProfit: "",
     strategy: "",
@@ -49,18 +42,17 @@ export function emptyTradeValues(nowLocal: string, accountId = ""): TradeInput {
 
 /** Existing trade → form values (times shown in the user's timezone). */
 export function tradeToFormValues(t: TradeLike, tz: string): TradeInput {
+  const pnl = t.net_pnl === null ? null : String(t.net_pnl);
   return {
     accountId: t.account_id,
-    symbol: t.symbol,
-    assetClass: t.asset_class as TradeInput["assetClass"],
+    // Older trades may use a symbol that's no longer offered; the form asks to pick one.
+    symbol: t.symbol as TradeInput["symbol"],
     direction: t.direction as TradeInput["direction"],
     entryTime: local(t.entry_time, tz),
     entryPrice: str(t.entry_price),
-    quantity: str(t.quantity),
-    multiplier: str(t.multiplier),
-    exitTime: t.exit_time ? local(t.exit_time, tz) : "",
     exitPrice: str(t.exit_price),
-    fees: str(t.fees),
+    pnlAmount: pnl === null ? "" : pnl.replace(/^-/, ""),
+    pnlSide: pnl?.startsWith("-") ? "loss" : "profit",
     stopLoss: str(t.stop_loss),
     takeProfit: str(t.take_profit),
     strategy: t.strategy ?? "",

@@ -105,21 +105,21 @@ export function Benefits() {
             visual={
               <div className="w-full rounded-lg border bg-background p-3 font-mono text-[11px]">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>NQ · Long · 2 @ 21,480</span>
+                  <span>NQ · Long · 21,480 → 21,496</span>
                 </div>
                 <div className="mt-2 flex justify-between">
                   <span className="text-muted-foreground">Net P&amp;L</span>
                   <span className="text-profit tabular-nums">+€640.00</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">R-multiple</span>
-                  <span className="tabular-nums">2.1R</span>
+                  <span className="text-muted-foreground">Screenshots</span>
+                  <span className="tabular-nums">2</span>
                 </div>
               </div>
             }
           >
-            Enter the basics and TradeLedger calculates gross and net P&amp;L, fees and your
-            R‑multiple instantly.
+            Entry, exit, your profit or loss and a chart screenshot. That&apos;s it: logged in
+            seconds, from your phone or desktop.
           </BenefitCard>
 
           <BenefitCard

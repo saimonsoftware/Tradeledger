@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { lastNDays, startOfLocalDay } from "@/lib/calculations/week";
 import { computeInsightStats, type StatTrade } from "@/lib/insights/stats";
 import { getProfile } from "@/lib/profile/data";
+import { SYMBOL_ASSET_CLASS } from "@/lib/trades/constants";
 import { createClient } from "@/lib/supabase/server";
 
 export const PERIODS = { "30": 30, "90": 90, "365": 365, all: null } as const;
@@ -28,7 +29,7 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
   let query = supabase
     .from("trades")
     .select(
-      "symbol, direction, asset_class, strategy, tags, rating, entry_time, exit_time, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
+      "symbol, direction, strategy, tags, rating, entry_time, exit_time, net_pnl, notes, account:trading_accounts(currency)",
     )
     .eq("status", "closed")
     .order("exit_time", { ascending: false })
@@ -42,14 +43,15 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
   const trades: StatTrade[] = data.map((t) => ({
     symbol: t.symbol,
     direction: t.direction,
-    assetClass: t.asset_class,
+    assetClass: SYMBOL_ASSET_CLASS[t.symbol] ?? "other",
     strategy: t.strategy,
     tags: t.tags,
     rating: t.rating,
     entryTime: t.entry_time,
     exitTime: t.exit_time!,
     netPnl: Number(t.net_pnl),
-    rMultiple: t.r_multiple === null ? null : Number(t.r_multiple),
+    // P&L is entered directly (no position size), so there is no R-multiple.
+    rMultiple: null,
     currency: t.account?.currency ?? "EUR",
   }));
 
@@ -61,13 +63,12 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
     .filter((t) => t.notes?.trim())
     .slice(0, MAX_NOTES)
     .map((t) => ({
-      exit: t.exit_time!.slice(0, 10),
+      date: t.exit_time!.slice(0, 10),
       symbol: t.symbol,
       direction: t.direction,
       strategy: t.strategy,
       tags: t.tags,
       rating: t.rating,
-      r: t.r_multiple === null ? null : Number(t.r_multiple),
       result: Number(t.net_pnl) > 0 ? "win" : Number(t.net_pnl) < 0 ? "loss" : "breakeven",
       note: t.notes!.trim().slice(0, MAX_NOTE_CHARS),
     }));

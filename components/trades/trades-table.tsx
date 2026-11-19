@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 
 import { SignedAmount } from "@/components/common/signed-amount";
-import { formatPrice, formatR } from "@/lib/format/number";
+import { formatPrice } from "@/lib/format/number";
 import type { TradeListItem } from "@/lib/trades/data";
 import { tradesHref, type SortField, type TradeFilters } from "@/lib/trades/filters";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,7 @@ export function TradesTable({
     <div className="overflow-hidden rounded-2xl surface">
       {/* relative: keeps absolutely positioned sr-only labels inside the scroll box (else they widen the page on mobile). */}
       <div className="relative overflow-x-auto">
-        <table className="w-full min-w-[56rem] text-sm">
+        <table className="w-full min-w-[46rem] text-sm">
           <caption className="sr-only">Trades</caption>
           <thead className="border-b text-left text-xs text-muted-foreground">
             <tr>
@@ -71,16 +71,12 @@ export function TradesTable({
                 Account
               </th>
               <th scope="col" className="px-3 py-2.5 text-right font-medium">
-                Qty
-              </th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium">
                 Entry
               </th>
               <th scope="col" className="px-3 py-2.5 text-right font-medium">
                 Exit
               </th>
               <SortHeader field="net_pnl" label="Net P&L" filters={filters} align="right" />
-              <SortHeader field="r_multiple" label="R" filters={filters} align="right" />
               <th scope="col" className="w-10 px-2 py-2.5">
                 <span className="sr-only">Actions</span>
               </th>
@@ -121,17 +117,18 @@ export function TradesTable({
                   <td className="max-w-40 truncate px-3 py-2.5 text-muted-foreground">
                     {t.account?.name}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">{formatPrice(t.quantity)}</td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
                     {formatPrice(t.entry_price)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
-                    {t.status === "open" ? (
+                    {t.exit_price !== null ? (
+                      formatPrice(t.exit_price)
+                    ) : t.status === "open" ? (
                       <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                         Open
                       </span>
                     ) : (
-                      formatPrice(t.exit_price)
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-right">
@@ -140,15 +137,6 @@ export function TradesTable({
                     ) : (
                       <SignedAmount value={Number(t.net_pnl)} currency={currency} />
                     )}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-3 py-2.5 text-right tabular-nums",
-                      Number(t.r_multiple) > 0 && "text-profit",
-                      Number(t.r_multiple) < 0 && "text-loss",
-                    )}
-                  >
-                    {formatR(t.r_multiple)}
                   </td>
                   <td className="px-2 py-2.5">
                     <TradeRowActions tradeId={t.id} label={label} />

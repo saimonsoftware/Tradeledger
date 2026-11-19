@@ -7,13 +7,12 @@ import { Suspense } from "react";
 
 import { SignedAmount } from "@/components/common/signed-amount";
 import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
+import { TradeScreenshots } from "@/components/trades/trade-screenshots";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatCurrency } from "@/lib/format/currency";
-import { formatPrice, formatR } from "@/lib/format/number";
+import { formatPrice } from "@/lib/format/number";
 import { getProfile } from "@/lib/profile/data";
-import { ASSET_CLASS_LABELS, type AssetClass } from "@/lib/trades/constants";
-import { getTrade } from "@/lib/trades/data";
+import { getScreenshotsForTrade, getTrade } from "@/lib/trades/data";
 import { cn } from "@/lib/utils";
 import { idSchema } from "@/lib/validation/accounts";
 
@@ -22,7 +21,11 @@ export const metadata: Metadata = { title: "Trade" };
 async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["params"] }) {
   const { id } = await params;
   if (!idSchema.safeParse(id).success) notFound();
-  const [trade, { timezone }] = await Promise.all([getTrade(id), getProfile()]);
+  const [trade, { timezone }, screenshots] = await Promise.all([
+    getTrade(id),
+    getProfile(),
+    getScreenshotsForTrade(id),
+  ]);
   if (!trade) notFound();
 
   const cur = trade.account?.currency ?? "EUR";
@@ -33,30 +36,11 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
 
   const facts: [string, React.ReactNode][] = [
     ["Account", trade.account?.name ?? "—"],
-    ["Asset class", ASSET_CLASS_LABELS[trade.asset_class as AssetClass] ?? trade.asset_class],
-    [
-      "Entry",
-      <>
-        {formatPrice(trade.entry_price)}{" "}
-        <span className="text-muted-foreground">· {fmtTime(trade.entry_time)}</span>
-      </>,
-    ],
-    [
-      "Exit",
-      trade.exit_time ? (
-        <>
-          {formatPrice(trade.exit_price)}{" "}
-          <span className="text-muted-foreground">· {fmtTime(trade.exit_time)}</span>
-        </>
-      ) : (
-        "Still open"
-      ),
-    ],
-    ["Quantity", formatPrice(trade.quantity)],
-    ["Multiplier", formatPrice(trade.multiplier)],
+    ["Entry time", fmtTime(trade.entry_time)],
+    ["Entry price", formatPrice(trade.entry_price)],
+    ["Exit price", formatPrice(trade.exit_price)],
     ["Stop loss", formatPrice(trade.stop_loss)],
     ["Take profit", formatPrice(trade.take_profit)],
-    ["Fees", formatCurrency(Number(trade.fees), cur)],
     ["Strategy", trade.strategy ?? "—"],
   ];
 
@@ -97,7 +81,7 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
         className="mt-6 grid grid-cols-2 gap-5 rounded-2xl surface card-glow p-5 sm:grid-cols-4 sm:p-6"
       >
         <div>
-          <p className="text-xs text-muted-foreground">Net P&amp;L</p>
+          <p className="text-xs text-muted-foreground">Profit / loss</p>
           <p className="mt-1 text-2xl font-semibold">
             {net === null ? (
               <span className="text-muted-foreground">—</span>
@@ -107,26 +91,12 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
           </p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Gross P&amp;L</p>
-          <p className="mt-1 text-lg font-medium">
-            {trade.gross_pnl === null ? (
-              "—"
-            ) : (
-              <SignedAmount value={Number(trade.gross_pnl)} currency={cur} showIcon={false} />
-            )}
-          </p>
+          <p className="text-xs text-muted-foreground">Entry</p>
+          <p className="mt-1 text-lg font-medium tabular-nums">{formatPrice(trade.entry_price)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">R-multiple</p>
-          <p
-            className={cn(
-              "mt-1 text-lg font-medium tabular-nums",
-              Number(trade.r_multiple) > 0 && "text-profit",
-              Number(trade.r_multiple) < 0 && "text-loss",
-            )}
-          >
-            {formatR(trade.r_multiple)}
-          </p>
+          <p className="text-xs text-muted-foreground">Exit</p>
+          <p className="mt-1 text-lg font-medium tabular-nums">{formatPrice(trade.exit_price)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Execution</p>
@@ -189,6 +159,15 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
           </div>
         </section>
       </div>
+
+      <section aria-labelledby="shots-title" className="mt-6 rounded-2xl surface">
+        <h2 id="shots-title" className="border-b px-5 py-4 font-semibold">
+          Screenshots
+        </h2>
+        <div className="@container p-5">
+          <TradeScreenshots tradeId={trade.id} screenshots={screenshots} />
+        </div>
+      </section>
     </>
   );
 }

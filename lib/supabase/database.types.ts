@@ -297,21 +297,15 @@ export type Database = {
       trades: {
         Row: {
           account_id: string
-          asset_class: string
           created_at: string
           direction: string
           entry_price: number
           entry_time: string
           exit_price: number | null
           exit_time: string | null
-          fees: number
-          gross_pnl: number | null
           id: string
-          multiplier: number
           net_pnl: number | null
           notes: string | null
-          quantity: number
-          r_multiple: number | null
           rating: number | null
           status: string | null
           stop_loss: number | null
@@ -324,21 +318,15 @@ export type Database = {
         }
         Insert: {
           account_id: string
-          asset_class: string
           created_at?: string
           direction: string
           entry_price: number
           entry_time: string
           exit_price?: number | null
           exit_time?: string | null
-          fees?: number
-          gross_pnl?: number | null
           id?: string
-          multiplier?: number
           net_pnl?: number | null
           notes?: string | null
-          quantity: number
-          r_multiple?: number | null
           rating?: number | null
           status?: string | null
           stop_loss?: number | null
@@ -351,21 +339,15 @@ export type Database = {
         }
         Update: {
           account_id?: string
-          asset_class?: string
           created_at?: string
           direction?: string
           entry_price?: number
           entry_time?: string
           exit_price?: number | null
           exit_time?: string | null
-          fees?: number
-          gross_pnl?: number | null
           id?: string
-          multiplier?: number
           net_pnl?: number | null
           notes?: string | null
-          quantity?: number
-          r_multiple?: number | null
           rating?: number | null
           status?: string | null
           stop_loss?: number | null

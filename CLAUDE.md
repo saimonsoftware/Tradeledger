@@ -493,7 +493,6 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 
 - Trade times are entered as wall-clock times in the **user's profile timezone**; Server Actions convert with `fromZonedTime` (`lib/trades/actions.ts`). Display with `formatInTimeZone(iso, profile.timezone, …)`.
 - Prices/quantities (numeric(18,8)) travel as **exact strings** to Postgres (`numeric()` helper in `lib/trades/actions.ts`). Never `Number()` them before saving.
-- `lib/calculations/trade.ts` mirrors the DB generated-column formulas for the live preview only (rounding = half away from zero). Keep both in sync if formulas change.
 - List filters live in the URL (`lib/trades/filters.ts`); invalid params are ignored, not errors. Totals are grouped by currency (never summed across currencies).
 - **Responsive forms inside panels: use container queries** (`@container`, `@lg:`, `@3xl:`) so layout follows the form's own width, not the viewport.
 - **Wide tables:** the app content wrapper and `SidebarInset` need `min-w-0`, and a scroll box containing `sr-only` (absolutely positioned) elements needs `relative`, or the page scrolls sideways on mobile.
@@ -551,3 +550,13 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - `app/manifest.ts` (standalone, opens at `/app/dashboard`), `app/apple-icon.png`, `public/icons/*` (192/512 + maskable). No offline mode / service worker.
 - `viewportFit: "cover"`: the body pads `env(safe-area-inset-*)`; `fixed` elements (sheets) and sticky bottom bars must add `env(safe-area-inset-bottom)` themselves.
 - Form controls must be ≥16px on mobile (`text-base md:text-sm`), or iOS zooms in on focus. This includes native `<select>`s.
+
+### Simple trades & screenshots (replaces parts of spec 5.6)
+
+- The owner asked for a simpler trade form: symbols **EURUSD / NQ only** (`SYMBOLS` in `lib/trades/constants.ts`, DB check `trades_symbol_allowed`, NOT VALID for older rows). No asset class, quantity, multiplier, fees or R-multiple.
+- **P&L is typed by the trader**: unsigned amount + Profit/Loss toggle (iPhone decimal keypads have no minus key) → `netPnl` signed string. Empty = open trade.
+- `trades.exit_time` and `status` are generated from `net_pnl`: a closed trade's `exit_time` = its `entry_time`, so dashboard/week/coach logic is unchanged. Never send them.
+- The AI Coach gets `rMultiple: null` and an asset class derived from the symbol (`SYMBOL_ASSET_CLASS`). Tool definitions/prompts were deliberately NOT changed (that would break replay of saved conversations).
+- **Screenshots**: private bucket `trade-screenshots`, path `<user_id>/<trade_id>/<uuid>.<ext>`. Storage RLS = own folder + own trade + max 6 (`can_add_trade_screenshot()`, SECURITY DEFINER, because a storage.objects policy can't query storage.objects: "infinite recursion" → storage reports `DatabaseInvalidObjectDefinition`). Restrictive 2FA policy too.
+- Uploads: browser shrinks to ≤2400px WebP/JPEG (`lib/screenshots/prepare.ts`), Server Action checks size + magic bytes (`lib/screenshots/sniff.ts`); `serverActions.bodySizeLimit` = 4mb (Vercel's limit is 4.5 MB). Viewed through 1-hour signed URLs (CSP `img-src` allows the Supabase origin).
+- Storage files are NOT removed by DB cascades: `deleteTrade` and `deleteAccount` remove them explicitly; tests clean up their files too.

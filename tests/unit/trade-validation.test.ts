@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { tradeSchema, type TradeInput } from "@/lib/validation/trades";
+import { signedMoney, tradeSchema, type TradeInput } from "@/lib/validation/trades";
 
 const base: TradeInput = {
   accountId: "6f1c1f3e-8f7a-4d0b-9a6e-2f1b3c4d5e6f",
-  symbol: " nq ",
-  assetClass: "future",
+  symbol: "NQ",
   direction: "long",
   entryTime: "2026-11-16T14:30",
   entryPrice: "21,480",
-  quantity: "2",
-  multiplier: "20",
-  exitTime: "2026-11-16T15:00",
   exitPrice: "21500",
-  fees: "",
+  pnlAmount: "391.60",
+  pnlSide: "profit",
   stopLoss: "",
   takeProfit: "",
   strategy: " ORB ",
@@ -27,51 +24,51 @@ describe("tradeSchema", () => {
     const r = tradeSchema.parse(base);
     expect(r.symbol).toBe("NQ");
     expect(r.entryPrice).toBe("21480");
-    expect(r.fees).toBe("0");
+    expect(r.exitPrice).toBe("21500");
+    expect(r.netPnl).toBe("391.60");
     expect(r.stopLoss).toBeNull();
     expect(r.strategy).toBe("ORB");
     expect(r.tags).toEqual(["A+ setup", "patient"]);
     expect(r.notes).toBeNull();
     expect(r.rating).toBe(4);
+    // The form-only fields don't reach the server row.
+    expect(r).not.toHaveProperty("pnlAmount");
+    expect(r).not.toHaveProperty("pnlSide");
   });
 
-  it("keeps high-precision values as exact strings", () => {
-    const r = tradeSchema.parse({
-      ...base,
-      entryPrice: "1234567890.12345678",
-      exitTime: "",
-      exitPrice: "",
-    });
-    expect(r.entryPrice).toBe("1234567890.12345678");
+  it("turns a loss into a negative amount", () => {
+    expect(tradeSchema.parse({ ...base, pnlAmount: "1,250.5", pnlSide: "loss" }).netPnl).toBe(
+      "-1250.5",
+    );
   });
 
-  it("accepts an open trade (no exit)", () => {
-    const r = tradeSchema.parse({ ...base, exitTime: "", exitPrice: "" });
-    expect(r.exitTime).toBeNull();
+  it("treats zero as breakeven, never -0", () => {
+    expect(tradeSchema.parse({ ...base, pnlAmount: "0.00", pnlSide: "loss" }).netPnl).toBe("0");
+    expect(signedMoney("0", "loss")).toBe("0");
+  });
+
+  it("accepts an open trade (no P&L, no exit price)", () => {
+    const r = tradeSchema.parse({ ...base, pnlAmount: "", exitPrice: "" });
+    expect(r.netPnl).toBeNull();
     expect(r.exitPrice).toBeNull();
   });
 
-  it("requires exit price and exit time together", () => {
-    const a = tradeSchema.safeParse({ ...base, exitPrice: "" });
-    const b = tradeSchema.safeParse({ ...base, exitTime: "" });
-    expect(!a.success && a.error.issues[0].path).toEqual(["exitPrice"]);
-    expect(!b.success && b.error.issues[0].path).toEqual(["exitTime"]);
-  });
-
-  it("rejects exit before entry", () => {
-    const r = tradeSchema.safeParse({ ...base, exitTime: "2026-11-16T14:00" });
-    expect(!r.success && r.error.issues[0].message).toMatch(/before entry/);
+  it("keeps high-precision prices as exact strings", () => {
+    const r = tradeSchema.parse({ ...base, entryPrice: "1.08765432" });
+    expect(r.entryPrice).toBe("1.08765432");
   });
 
   it.each([
+    ["symbol", "AAPL"],
+    ["symbol", "nq"],
     ["entryPrice", "0"],
     ["entryPrice", "-5"],
-    ["quantity", "abc"],
-    ["multiplier", "0"],
-    ["fees", "-1"],
-    ["symbol", "NQ!"],
+    ["exitPrice", "abc"],
+    ["pnlAmount", "-20"],
+    ["pnlAmount", "12.345"],
+    ["pnlAmount", "abc"],
+    ["pnlSide", "maybe"],
     ["rating", "6"],
-    ["assetClass", "bond"],
   ] as const)("rejects %s = %j", (field, value) => {
     expect(tradeSchema.safeParse({ ...base, [field]: value }).success).toBe(false);
   });

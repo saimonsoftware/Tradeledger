@@ -80,13 +80,13 @@ begin
     continue when extract(isodow from d) > 5;
     n := 1 + floor(random()::numeric * 3)::int;
     for i in 1..n loop
-      case floor(random()::numeric * 5)::int
-        when 0 then sym := 'NQ';     cls := 'future'; acc := acc_futures; mult := 20;  qty := 1;                        base_px := 21000;
-        when 1 then sym := 'ES';     cls := 'future'; acc := acc_futures; mult := 50;  qty := 1;                        base_px := 6000;
-        when 2 then sym := 'EURUSD'; cls := 'forex';  acc := acc_prop;    mult := 1;   qty := 100000 * (1 + floor(random()::numeric * 3)); base_px := 1.08;
-        when 3 then sym := 'AAPL';   cls := 'stock';  acc := acc_prop;    mult := 1;   qty := 50 + floor(random()::numeric * 150); base_px := 230;
-        else        sym := 'BTCEUR'; cls := 'crypto'; acc := acc_crypto;  mult := 1;   qty := 0.05;                     base_px := 90000;
-      end case;
+      -- Only EURUSD and NQ can be logged. Size/multiplier are used here just to make
+      -- realistic P&L amounts (the app stores the P&L itself).
+      if random()::numeric < 0.5 then
+        sym := 'NQ';     cls := 'future'; acc := acc_futures; mult := 20; qty := 1;                                          base_px := 21000;
+      else
+        sym := 'EURUSD'; cls := 'forex';  acc := acc_prop;    mult := 1;  qty := 100000 * (1 + floor(random()::numeric * 3)); base_px := 1.08;
+      end if;
 
       dir := case when random()::numeric < 0.6 then 'long' else 'short' end;
       entry_px := round(base_px * (1 + (random()::numeric - 0.5) * 0.04), case when cls = 'forex' then 5 else 2 end);
@@ -108,17 +108,17 @@ begin
       end if;
 
       insert into public.trades (
-        user_id, account_id, symbol, asset_class, direction,
-        entry_time, entry_price, quantity, multiplier,
-        exit_time, exit_price, fees, stop_loss, strategy, tags, rating, notes
+        user_id, account_id, symbol, direction,
+        entry_time, entry_price, exit_price, net_pnl, stop_loss, strategy, tags, rating, notes
       ) values (
-        demo_id, acc, sym, cls, dir,
-        t_in, entry_px, qty, mult,
-        t_out,
+        demo_id, acc, sym, dir,
+        t_in, entry_px,
         case when t_out is null then null
              else round(case when dir = 'long' then entry_px + move else entry_px - move end,
                         case when cls = 'forex' then 5 else 2 end) end,
-        round((2 + random()::numeric * 8)::numeric, 2),
+        -- P&L after fees (null = still open)
+        case when t_out is null then null
+             else round(move * qty * mult - (2 + random()::numeric * 8), 2) end,
         case when dir = 'long' then entry_px - stop_dist else entry_px + stop_dist end,
         strategies[1 + floor(random()::numeric * array_length(strategies, 1))::int],
         array[tag_pool[1 + floor(random()::numeric * array_length(tag_pool, 1))::int]],

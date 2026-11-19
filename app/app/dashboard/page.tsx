@@ -359,7 +359,7 @@ async function Dashboard({
         <EmptyState
           icon={BookOpen}
           title="Log your first trade"
-          body="Record entry, exit, size and fees. Your daily P&L chart and stats fill in automatically."
+          body="Record your entry, exit and profit or loss. Your daily P&L chart and stats fill in automatically."
           action={
             <Button asChild variant="contrast" className="h-10 px-4">
               <Link href="/app/trades/new">

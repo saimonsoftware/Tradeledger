@@ -10,7 +10,7 @@ import { DashboardPreview } from "./dashboard-preview";
 const reveal =
   "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 [animation-duration:700ms] [animation-fill-mode:both]";
 
-const assetClasses = ["Stocks", "Options", "Futures", "Forex", "Crypto", "CFDs"];
+const assetClasses = ["EURUSD", "NQ futures"];
 
 export function Hero() {
   return (

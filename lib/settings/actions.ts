@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/dal";
+import { removeAllScreenshots } from "@/lib/screenshots/storage";
 import { createClient } from "@/lib/supabase/server";
 import { verifyPassword } from "@/lib/supabase/verify-password";
 import {
@@ -90,6 +91,8 @@ export async function deleteAccount(input: DeleteAccountInput): Promise<Settings
   }
 
   const supabase = await createClient();
+  // Screenshot files first (Storage isn't covered by the database cascade).
+  await removeAllScreenshots(supabase, user.id);
   // Deletes ONLY the caller (auth.uid()) and, by cascade, all of their data.
   const { error } = await supabase.rpc("delete_my_account");
   if (error) return { ok: false, error: GENERIC };

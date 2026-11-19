@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 
 import { requireUser } from "@/lib/auth/dal";
 import { getProfile } from "@/lib/profile/data";
+import { removeTradeScreenshots } from "@/lib/screenshots/storage";
 import { createClient } from "@/lib/supabase/server";
 import { idSchema } from "@/lib/validation/accounts";
 import {
@@ -22,7 +23,7 @@ export type TradeActionResult =
 const GENERIC = "Something went wrong. Please try again.";
 
 /**
- * Exact decimal strings ("21480.25") go to Postgres as text, which casts them to
+ * Exact decimal strings ("21480.25", "-125.50") go to Postgres as text, which casts them to
  * `numeric` without passing through a JS float. The generated DB types say
  * `number`, so this documents (and contains) the one deliberate type cast.
  */
@@ -36,15 +37,11 @@ function toRow(v: TradeOutput, tz: string) {
   return {
     account_id: v.accountId,
     symbol: v.symbol,
-    asset_class: v.assetClass,
     direction: v.direction,
     entry_time: toUtc(v.entryTime, tz),
     entry_price: numeric(v.entryPrice),
-    quantity: numeric(v.quantity),
-    multiplier: numeric(v.multiplier),
-    exit_time: v.exitTime ? toUtc(v.exitTime, tz) : null,
     exit_price: numericOrNull(v.exitPrice),
-    fees: numeric(v.fees),
+    net_pnl: numericOrNull(v.netPnl),
     stop_loss: numericOrNull(v.stopLoss),
     take_profit: numericOrNull(v.takeProfit),
     strategy: v.strategy,
@@ -52,7 +49,7 @@ function toRow(v: TradeOutput, tz: string) {
     notes: v.notes,
     rating: v.rating,
     // user_id is NOT sent: the database sets it from the session (auth.uid()).
-    // P&L columns are NOT sent: the database computes them.
+    // exit_time / status are NOT sent: the database derives them from net_pnl.
   };
 }
 
@@ -136,13 +133,15 @@ export async function updateTrade(id: string, input: TradeInput): Promise<TradeA
 export async function deleteTrade(
   id: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireUser();
+  const user = await requireUser();
   if (!idSchema.safeParse(id).success) return { ok: false, error: "Trade not found." };
 
   const supabase = await createClient();
   const { data, error } = await supabase.from("trades").delete().eq("id", id).select("id");
   if (error) return { ok: false, error: GENERIC };
   if (!data.length) return { ok: false, error: "Trade not found." };
+  // Its screenshots go too (Storage files aren't removed by the database cascade).
+  await removeTradeScreenshots(supabase, user.id, id);
 
   refresh();
   return { ok: true };

@@ -37,6 +37,16 @@ test.afterAll(async () => {
     email: env.ISOLATION_USER_A_EMAIL,
     password: env.ISOLATION_USER_A_PASSWORD,
   });
+  // Screenshot files of this account's trades first (Storage isn't part of the cascade).
+  const { data: trades } = await sb
+    .from("trades")
+    .select("id, user_id, account:trading_accounts!inner(name)")
+    .eq("account.name", ACCOUNT);
+  const shots = sb.storage.from("trade-screenshots");
+  for (const t of trades ?? []) {
+    const { data: files } = await shots.list(`${t.user_id}/${t.id}`);
+    if (files?.length) await shots.remove(files.map((f) => `${t.user_id}/${t.id}/${f.name}`));
+  }
   await sb.from("trading_accounts").delete().eq("name", ACCOUNT);
   await sb.auth.signOut({ scope: "local" });
 });
@@ -84,18 +94,31 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   const sheet = page.getByRole("dialog");
   await sheet.getByLabel("Account").click();
   await page.getByRole("option", { name: new RegExp(ACCOUNT) }).click();
-  await sheet.getByLabel("Symbol").fill("msft");
-  const entry = await sheet.getByLabel("Entry date & time").inputValue(); // defaults to "now"
-  await sheet.getByLabel("Entry price").fill("400");
-  await sheet.getByLabel("Quantity / size").fill("10");
-  await sheet.getByLabel("Exit date & time").fill(entry);
-  await sheet.getByLabel("Exit price").fill("412.5");
-  await sheet.getByLabel(/Fees/).fill("2");
-  await expect(sheet.getByLabel("Live P&L preview")).toContainText("+US$123.00");
+  await sheet.getByRole("radio", { name: "NQ" }).click();
+  await sheet.getByLabel("Entry price").fill("21480");
+  await sheet.getByLabel(/Exit price/).fill("21486.25");
+  await sheet.getByRole("radio", { name: /Profit/ }).click();
+  await sheet.getByLabel(/^Amount/).fill("123");
+  await expect(sheet.getByText("+US$123.00").filter({ visible: true }).first()).toBeVisible();
+  // Attach a screenshot before saving (uploaded right after the trade is created).
+  await sheet.locator('input[type="file"]').setInputFiles({
+    name: "chart.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  });
+  await expect(sheet.getByRole("button", { name: "Remove screenshot 1" })).toBeVisible();
   await sheet.getByRole("button", { name: "Log trade" }).filter({ visible: true }).click();
   await expect(page.getByText("Trade logged")).toBeVisible();
 
-  // Account balance includes the trade: 10,000 + (412.5 − 400) × 10 − 2 = 10,123.00
+  // The trade page shows the screenshot (a private, signed link).
+  await page.getByRole("button", { name: "View" }).click();
+  await expect(page).toHaveURL(/\/app\/trades\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("button", { name: "View screenshot 1" })).toBeVisible();
+
+  // Account balance includes the trade: 10,000 + 123 = 10,123.00
   await page.goto(accountUrl);
   await expect(page.getByLabel("Balance")).toContainText("US$10,123.00");
 
@@ -105,6 +128,6 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   const recent = page.locator("section", {
     has: page.getByRole("heading", { name: "Recent trades" }),
   });
-  await expect(recent.getByRole("link", { name: "MSFT" }).first()).toBeVisible();
+  await expect(recent.getByRole("link", { name: "NQ" }).first()).toBeVisible();
   await expect(page.locator("li", { hasText: ACCOUNT })).toContainText("US$10,123.00");
 });

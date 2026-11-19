@@ -1,14 +1,20 @@
 import { z } from "zod";
 
-import { ASSET_CLASSES, DIRECTIONS, MAX_TAGS } from "@/lib/trades/constants";
+import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS } from "@/lib/trades/constants";
 
-// Prices/quantities: up to 10 integer digits and 8 decimals (numeric(18,8)).
+// Prices: up to 10 integer digits and 8 decimals (numeric(18,8)).
 // Kept as STRINGS end-to-end and sent to Postgres as text, so even values with
 // 18 significant digits (beyond a JS number's precision) are stored exactly.
 const DECIMAL_18_8 = /^\d{1,10}(\.\d{1,8})?$/;
 const MONEY_18_2 = /^\d{1,13}(\.\d{1,2})?$/;
 
 const clean = (s: string) => s.trim().replace(/,/g, "");
+
+/** "125.50" + "loss" → "-125.50". Zero is always "0" (breakeven), never "-0". */
+export function signedMoney(amount: string, side: (typeof PNL_SIDES)[number]): string {
+  if (Number(amount) === 0) return "0";
+  return side === "loss" ? `-${amount}` : amount;
+}
 
 const positiveDecimal = (label: string) =>
   z
@@ -52,30 +58,24 @@ const normaliseLocal = (s: string) => (s.length === 16 ? `${s}:00` : s);
 export const tradeSchema = z
   .object({
     accountId: z.uuid("Choose an account"),
-    symbol: z
-      .string()
-      .trim()
-      .toUpperCase()
-      .min(1, "Enter a symbol")
-      .max(20, "Symbols are at most 20 characters")
-      .regex(/^[A-Z0-9.:/_-]+$/, "Use letters, numbers and . : / _ - only"),
-    assetClass: z.enum(ASSET_CLASSES, { message: "Choose an asset class" }),
+    symbol: z.enum(SYMBOLS, { message: "Choose a symbol" }),
     direction: z.enum(DIRECTIONS),
     entryTime: localDateTime,
     entryPrice: positiveDecimal("entry price"),
-    quantity: positiveDecimal("quantity"),
-    multiplier: positiveDecimal("multiplier"),
-    exitTime: z
-      .string()
-      .optional()
-      .transform((s) => s || "")
-      .pipe(z.union([z.literal("").transform(() => null), localDateTime])),
     exitPrice: optionalPositiveDecimal("exit price"),
-    fees: z
+    // The P&L is typed as a positive amount plus a Profit/Loss choice (phone number
+    // keypads often have no minus key). Empty = the trade is still open.
+    pnlAmount: z
       .string()
       .optional()
-      .transform((s) => (s ? clean(s) : "0"))
-      .pipe(z.string().regex(MONEY_18_2, "Enter fees like 4.20 (0 or more)")),
+      .transform((s) => (s ? clean(s) : ""))
+      .pipe(
+        z.union([
+          z.literal("").transform(() => null),
+          z.string().regex(MONEY_18_2, "Enter an amount like 125.50"),
+        ]),
+      ),
+    pnlSide: z.enum(PNL_SIDES),
     stopLoss: optionalPositiveDecimal("stop loss"),
     takeProfit: optionalPositiveDecimal("take profit"),
     strategy: z
@@ -114,25 +114,11 @@ export const tradeSchema = z
       .transform((s) => (s ? Number(s) : null))
       .pipe(z.union([z.null(), z.number().int().min(1).max(5)])),
   })
-  .superRefine((t, ctx) => {
-    if (t.exitTime && !t.exitPrice) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["exitPrice"],
-        message: "Add the exit price (or clear the exit time)",
-      });
-    }
-    if (t.exitPrice && !t.exitTime) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["exitTime"],
-        message: "Add the exit time (or clear the exit price)",
-      });
-    }
-    if (t.exitTime && normaliseLocal(t.exitTime) < normaliseLocal(t.entryTime)) {
-      ctx.addIssue({ code: "custom", path: ["exitTime"], message: "Exit can't be before entry" });
-    }
-  });
+  .transform(({ pnlAmount, pnlSide, ...rest }) => ({
+    ...rest,
+    /** Signed P&L as an exact decimal string ("-125.50"), or null while open. */
+    netPnl: pnlAmount === null ? null : signedMoney(pnlAmount, pnlSide),
+  }));
 
 export type TradeInput = z.input<typeof tradeSchema>;
 export type TradeOutput = z.output<typeof tradeSchema>;
