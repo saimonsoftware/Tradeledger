@@ -85,16 +85,17 @@ describe("holdingBucket", () => {
   });
 });
 
-describe("sessionOf (New York time, daylight saving aware)", () => {
+describe("sessionOf (Irish time, summer time aware)", () => {
   it.each([
-    // November: New York is UTC-5
-    ["2026-11-16T14:30:00Z", "New York AM"], // 09:30 NY
-    ["2026-11-16T18:00:00Z", "New York PM"], // 13:00 NY
-    ["2026-11-16T09:00:00Z", "London"], // 04:00 NY
-    ["2026-11-16T03:00:00Z", "Asia"], // 22:00 NY
-    ["2026-11-16T22:30:00Z", "After hours"], // 17:30 NY
-    // July: New York is UTC-4, so 13:30 UTC is still 09:30 NY
-    ["2026-07-13T13:30:00Z", "New York AM"],
+    // November: Ireland is UTC+0
+    ["2026-11-16T07:59:00Z", "Asia"],
+    ["2026-11-16T08:00:00Z", "London"],
+    ["2026-11-16T14:30:00Z", "New York AM"], // NQ cash open
+    ["2026-11-16T18:00:00Z", "New York PM"],
+    ["2026-11-16T22:30:00Z", "After hours"],
+    // July: Ireland is UTC+1, so 07:30 UTC is 08:30 Irish time
+    ["2026-07-13T07:30:00Z", "London"],
+    ["2026-07-13T12:30:00Z", "New York AM"],
   ])("%s → %s", (iso, expected) => {
     expect(sessionOf(iso)).toBe(expected);
   });
@@ -119,7 +120,7 @@ describe("strategy combinations", () => {
     expect(key(s.byStrategyDirection)["ORB · short"].trades).toBe(1);
     expect(key(s.byStrategySession)["ORB · New York AM"].trades).toBe(3);
     expect(s.bySession.map((g) => g.key)).toEqual(["London", "New York AM"]);
-    expect(s.definitions.sessions).toMatch(/New York time/);
+    expect(s.definitions.sessions).toMatch(/Irish time/);
   });
 });
 

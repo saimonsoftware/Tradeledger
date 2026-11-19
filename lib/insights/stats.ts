@@ -61,7 +61,7 @@ export type InsightStats = {
   byHour: GroupStats[];
   /** Only trades with a real exit time (older trades); empty for trades logged without one. */
   byHoldingTime: GroupStats[];
-  /** Market session of the entry, in New York time (see SESSION_NOTE). */
+  /** Market session of the entry, in Irish time (see SESSION_NOTE). */
   bySession: GroupStats[];
   /** Combinations: keys look like "ORB · NQ". Find which setup works where and when. */
   byStrategySymbol: GroupStats[];
@@ -126,18 +126,19 @@ function groupBy(
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Trading sessions by NEW YORK time (follows US daylight saving automatically).
-// The same for every trader, whatever their own timezone, because markets keep NY hours.
+// Trading sessions by IRISH time (Europe/Dublin, follows Irish summer time).
+// The same for every trader, whatever timezone their profile uses.
+export const SESSION_TIMEZONE = "Europe/Dublin";
 export const SESSIONS = ["Asia", "London", "New York AM", "New York PM", "After hours"] as const;
 export const SESSION_NOTE =
-  "Sessions by entry time in New York time: Asia 19:00–03:00, London 03:00–08:00, New York AM 08:00–12:00, New York PM 12:00–17:00, After hours 17:00–19:00.";
+  "Sessions by entry time in Irish time (Europe/Dublin): Asia 00:00–08:00, London 08:00–13:00, New York AM 13:00–17:00, New York PM 17:00–22:00, After hours 22:00–00:00.";
 
 export function sessionOf(entryIso: string): (typeof SESSIONS)[number] {
-  const hour = Number(formatInTimeZone(entryIso, "America/New_York", "H"));
-  if (hour >= 19 || hour < 3) return "Asia";
-  if (hour < 8) return "London";
-  if (hour < 12) return "New York AM";
-  if (hour < 17) return "New York PM";
+  const hour = Number(formatInTimeZone(entryIso, SESSION_TIMEZONE, "H"));
+  if (hour < 8) return "Asia";
+  if (hour < 13) return "London";
+  if (hour < 17) return "New York AM";
+  if (hour < 22) return "New York PM";
   return "After hours";
 }
 
