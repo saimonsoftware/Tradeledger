@@ -25,6 +25,7 @@ export function LoginForm() {
   const [serverError, setServerError] = useState<string | null>(
     searchParams.get("error") === "link" ? LINK_ERROR : null,
   );
+  const accountDeleted = searchParams.get("deleted") === "1";
 
   const form = useForm<LogInInput>({
     resolver: zodResolver(logInSchema),
@@ -50,6 +51,11 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       {serverError && <FormMessage type="error">{serverError}</FormMessage>}
+      {accountDeleted && !serverError && (
+        <FormMessage type="success">
+          Your account and all of its data have been deleted.
+        </FormMessage>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor={f("email")}>Email</Label>

@@ -48,11 +48,23 @@ export async function updateSession(request: NextRequest) {
   // getClaims() verifies the access token's signature (it never trusts the cookie
   // blindly like getSession() would) and triggers a refresh when needed.
   const { data } = await supabase.auth.getClaims();
-  const isLoggedIn = Boolean(data?.claims?.sub);
+  let isLoggedIn = Boolean(data?.claims?.sub);
 
   const { pathname, search } = request.nextUrl;
+  const isAppRoute = pathname === "/app" || pathname.startsWith("/app/");
 
-  if (!isLoggedIn && (pathname === "/app" || pathname.startsWith("/app/"))) {
+  // A token can still be validly signed after its session was revoked ("sign out
+  // everywhere", password change). On pages where it matters, confirm the session
+  // still exists; if not, clear this browser's cookies and treat it as logged out.
+  if (isLoggedIn && (isAppRoute || GUEST_ONLY.includes(pathname))) {
+    const { data: active } = await supabase.rpc("session_is_active");
+    if (active === false) {
+      await supabase.auth.signOut({ scope: "local" }); // clears the auth cookies via setAll
+      isLoggedIn = false;
+    }
+  }
+
+  if (!isLoggedIn && isAppRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";

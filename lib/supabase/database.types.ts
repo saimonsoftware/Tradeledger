@@ -256,7 +256,8 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      delete_my_account: { Args: never; Returns: undefined }
+      session_is_active: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

@@ -506,3 +506,8 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Chart colours are separate from text colours:** `--chart-profit` / `--chart-loss` (bars) were validated with the dataviz palette checker (CVD ΔE ≥ 16.9 both modes); `--profit` / `--loss` stay for text. Because bar contrast vs surface is < 3:1, the chart must keep its visible axis values and the "Show as table" view.
 - Chart conventions: ≤24px bars, 4px rounded data end, solid hairline horizontal grid, zero reference line, per-bar tooltip, `accessibilityLayer` (keyboard), true minus signs.
 - Unique ids across layouts: only the marketing layout uses `id="main"` (skip link); the app content is `#app-content`.
+
+### Settings & sessions (Phase 7)
+- Account deletion uses `delete_my_account()` (SECURITY DEFINER, no args, deletes only `auth.uid()`, cascades). No service_role key. The Server Action re-verifies the password first (`lib/supabase/verify-password.ts`, a throwaway client so the real session is untouched).
+- **Revoked sessions are rejected immediately:** Supabase access tokens stay valid until expiry (≤1h) after "sign out everywhere"/password change. `session_is_active()` checks `auth.sessions` for the token's `session_id`; the proxy (app + guest-only routes) and the DAL both call it. Covered by `tests/integration/sessions.test.ts`.
+- Sensitive actions (change password, delete account) require the current password.
