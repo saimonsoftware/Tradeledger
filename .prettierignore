@@ -6,3 +6,4 @@ playwright-report
 test-results
 coverage
 next-env.d.ts
+lib/supabase/database.types.ts

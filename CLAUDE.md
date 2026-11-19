@@ -459,3 +459,10 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - The "Go to dashboard" navbar variant for logged-in visitors (spec 5.1) is deferred to Phase 2. Implement it client-side so `/` stays static.
 - **Stale CSS in dev:** Next 16 keeps a disk cache in `.next/`. If CSS edits (especially new `@utility` rules in `globals.css`) don't show up, stop the dev server, delete `.next`, and restart `npm run dev`. A plain restart is not always enough.
 - Avoid naming custom utilities with Tailwind's built-in prefixes (e.g. `text-`), to prevent clashes with its own utilities.
+
+### Supabase setup notes (Phase 2)
+
+- Project: Supabase Cloud, linked with `npx supabase link`. CLI v3 targets local by default: use `--remote` (e.g. `npm run db:push`, `npm run db:types`).
+- **Email templates can't be edited until custom SMTP is configured.** Until then, confirmation/reset links use Supabase's default PKCE `?code=` flow, which only works in the **same browser** that requested the email. In Phase 7 (custom SMTP), change the templates to token_hash links (`/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/app/dashboard` and `...&type=recovery`); `/auth/callback` already supports both.
+- Dev redirect allow-list uses `http://localhost:3000/**`. In production, allow only the exact production callback URL.
+- Supabase's built-in email sender is heavily rate-limited (a few emails/hour). Configure custom SMTP before launch.
