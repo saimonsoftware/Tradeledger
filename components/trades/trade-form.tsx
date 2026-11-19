@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Star } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -20,10 +20,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createTrade, updateTrade } from "@/lib/trades/actions";
-import { SL_UNIT_LABEL, stopLossPrice, tradeRr } from "@/lib/calculations/rr";
-import { formatPrice, formatR } from "@/lib/format/number";
+import { checkLevel, PIP_LABEL, pipsBetween, plannedRr, suggestedRr } from "@/lib/calculations/rr";
+import { formatR } from "@/lib/format/number";
 import type { Screenshot } from "@/lib/screenshots/storage";
-import { SYMBOLS, type TradeSymbol } from "@/lib/trades/constants";
+import { SYMBOLS } from "@/lib/trades/constants";
 import { useFieldIds } from "@/lib/use-field-ids";
 import { cn } from "@/lib/utils";
 import { tradeSchema, type TradeInput, type TradeOutput } from "@/lib/validation/trades";
@@ -57,29 +57,51 @@ function usePnl(control: Control<TradeInput, unknown, TradeOutput>) {
   return side === "loss" ? -Math.abs(n) : Math.abs(n);
 }
 
-/** Stop price and calculated RR from the SL size (same maths as the server). */
-function useSl(control: Control<TradeInput, unknown, TradeOutput>) {
-  const [symbol, direction, entry, exit, slSize] = useWatch({
+/** SL/TP distances, planned RR and the suggested Trade RR (same maths as the server). */
+function useLevels(control: Control<TradeInput, unknown, TradeOutput>) {
+  const [symbol, direction, entry, stopLoss, takeProfit, pnlSide, pnlAmount] = useWatch({
     control,
-    name: ["symbol", "direction", "entryPrice", "exitPrice", "slSize"],
+    name: ["symbol", "direction", "entryPrice", "stopLoss", "takeProfit", "pnlSide", "pnlAmount"],
   });
-  const valid = (SYMBOLS as readonly string[]).includes(symbol) && !!slSize?.trim();
-  if (!valid) return { stop: null, autoRr: null };
-  const sym = symbol as TradeSymbol;
+  return levelsFor({ symbol, direction, entry, stopLoss, takeProfit, pnlSide, pnlAmount });
+}
+
+function levelsFor(v: {
+  symbol: string;
+  direction: "long" | "short";
+  entry: string;
+  stopLoss?: string;
+  takeProfit?: string;
+  pnlSide: "profit" | "loss";
+  pnlAmount?: string;
+}) {
+  const level = (kind: "sl" | "tp", price?: string) => {
+    const check = checkLevel(kind, v.direction, v.entry, price ?? null);
+    return {
+      check,
+      pips: check === "ok" ? pipsBetween(v.symbol, v.entry, price ?? null) : null,
+    };
+  };
   return {
-    stop: entry ? stopLossPrice(sym, direction, entry, slSize!) : null,
-    autoRr: entry && exit ? tradeRr(sym, direction, entry, exit, slSize!) : null,
+    sl: level("sl", v.stopLoss),
+    tp: level("tp", v.takeProfit),
+    planned: plannedRr(v.direction, v.entry, v.stopLoss ?? null, v.takeProfit ?? null),
+    suggested: suggestedRr({
+      direction: v.direction,
+      entryPrice: v.entry,
+      stopLoss: v.stopLoss ?? null,
+      takeProfit: v.takeProfit ?? null,
+      pnlSide: v.pnlSide,
+      pnlAmount: v.pnlAmount ?? null,
+    }),
   };
 }
 
-/** The RR to show: calculated when possible, otherwise as typed (signed like the P&L). */
+/** The Trade RR as it will be saved: signed like the P&L. */
 function useRr(control: Control<TradeInput, unknown, TradeOutput>, pnl: number | null) {
   const rr = useWatch({ control, name: "rr" });
-  const { autoRr } = useSl(control);
-  if (pnl === null) return null;
-  if (autoRr !== null) return pnl === 0 ? null : Number(autoRr);
   const n = Number((rr ?? "").replace(/r$/i, "").trim());
-  if (!rr?.trim() || !Number.isFinite(n)) return null;
+  if (pnl === null || !rr?.trim() || !Number.isFinite(n)) return null;
   return pnl < 0 ? -Math.abs(n) : Math.abs(n);
 }
 
@@ -228,6 +250,7 @@ export function TradeForm({
     handleSubmit,
     control,
     getValues,
+    setValue,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<TradeInput, unknown, TradeOutput>({
@@ -237,8 +260,20 @@ export function TradeForm({
 
   const accountId = useWatch({ control, name: "accountId" });
   const symbol = useWatch({ control, name: "symbol" });
-  const slUnit = symbol === "NQ" ? SL_UNIT_LABEL.NQ : SL_UNIT_LABEL.EURUSD;
-  const sl = useSl(control);
+  const direction = useWatch({ control, name: "direction" });
+  const unit = symbol === "NQ" ? PIP_LABEL.NQ : PIP_LABEL.EURUSD;
+  const levels = useLevels(control);
+
+  // Trade RR fills itself in from SL/TP and Profit/Loss, until the trader types
+  // their own value (e.g. they closed early). Clearing the box goes back to automatic.
+  const [rrManual, setRrManual] = useState(() => {
+    if (!defaultValues.rr) return false;
+    const start = levelsFor({ ...defaultValues, entry: defaultValues.entryPrice }).suggested;
+    return start === null || Number(start) !== Number(defaultValues.rr);
+  });
+  useEffect(() => {
+    if (!rrManual) setValue("rr", levels.suggested ?? "");
+  }, [rrManual, levels.suggested, setValue]);
   const tags = useWatch({ control, name: "tags" }) ?? "";
   const currency = accounts.find((a) => a.id === accountId)?.currency ?? "EUR";
 
@@ -394,14 +429,28 @@ export function TradeForm({
                   `Your timezone: ${timezone}`,
                 )}
               </div>
-              {field("entryPrice", "Entry price", {
-                inputMode: "decimal",
-                className: "tabular-nums",
-              })}
-              {field("exitPrice", <>Exit price {optional}</>, {
-                inputMode: "decimal",
-                className: "tabular-nums",
-              })}
+              <div className="@lg:col-span-2">
+                {field("entryPrice", "Entry price", {
+                  inputMode: "decimal",
+                  className: "tabular-nums",
+                })}
+              </div>
+              {field(
+                "stopLoss",
+                <>SL price {optional}</>,
+                { inputMode: "decimal", className: "tabular-nums" },
+                levels.sl.pips
+                  ? `SL: ${levels.sl.pips} ${unit}`
+                  : `${direction === "short" ? "Above" : "Below"} the entry price`,
+              )}
+              {field(
+                "takeProfit",
+                <>TP price {optional}</>,
+                { inputMode: "decimal", className: "tabular-nums" },
+                levels.tp.pips
+                  ? `TP: ${levels.tp.pips} ${unit}${levels.planned ? ` · planned 1 : ${levels.planned}` : ""}`
+                  : `${direction === "short" ? "Below" : "Above"} the entry price`,
+              )}
               <div className="space-y-2 @lg:col-span-2">
                 <span id={f("pnl-label")} className="text-sm font-medium">
                   Profit or loss
@@ -453,97 +502,52 @@ export function TradeForm({
                 <FieldError id={f("pnlAmount-error")} message={errors.pnlAmount?.message} />
                 <FieldError id={f("pnlSide-error")} message={errors.pnlSide?.message} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor={f("slSize")}>SL size {optional}</Label>
-                <div className="relative">
-                  <Input
-                    id={f("slSize")}
-                    aria-invalid={!!errors.slSize}
-                    aria-describedby={errors.slSize ? f("slSize-error") : f("slSize-hint")}
-                    inputMode="decimal"
-                    placeholder={symbol === "NQ" ? "e.g. 20" : "e.g. 10"}
-                    className="pr-16 tabular-nums"
-                    {...register("slSize")}
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
-                  >
-                    {slUnit}
-                  </span>
-                </div>
-                {!errors.slSize && (
-                  <p id={f("slSize-hint")} className="text-xs text-muted-foreground tabular-nums">
-                    {sl.stop ? (
-                      <>
-                        Stop loss price:{" "}
-                        <span className="text-foreground">{formatPrice(sl.stop)}</span>
-                      </>
-                    ) : (
-                      `Your stop distance in ${slUnit}. Used to calculate the RR.`
+              <div className="space-y-2 @lg:col-span-2">
+                <Label htmlFor={f("rr")}>Trade RR {optional}</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative w-40">
+                    <Input
+                      id={f("rr")}
+                      aria-invalid={!!errors.rr}
+                      aria-describedby={errors.rr ? f("rr-error") : f("rr-hint")}
+                      inputMode="decimal"
+                      placeholder="e.g. 2.5"
+                      className="pr-8 tabular-nums"
+                      {...register("rr", {
+                        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+                          setRrManual(e.target.value.trim() !== ""),
+                      })}
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
+                    >
+                      R
+                    </span>
+                  </div>
+                  {rrManual &&
+                    levels.suggested !== null &&
+                    Number(levels.suggested) !== Number(getValues("rr")) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => setRrManual(false)}
+                      >
+                        Use calculated ({levels.suggested}R)
+                      </Button>
                     )}
+                </div>
+                {!errors.rr && (
+                  <p id={f("rr-hint")} className="text-xs text-muted-foreground">
+                    {!rrManual && levels.suggested !== null
+                      ? "Calculated: a profit hit your TP, a loss hit your SL (−1R). Type over it if you closed early."
+                      : "Fills in from your SL and TP prices, or type it in. A loss is counted as −R automatically."}
                   </p>
                 )}
-                <FieldError id={f("slSize-error")} message={errors.slSize?.message} />
+                <FieldError id={f("rr-error")} message={errors.rr?.message} />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor={f("rr")}>Trade RR {sl.autoRr === null && optional}</Label>
-                {sl.autoRr !== null ? (
-                  <>
-                    <output
-                      id={f("rr")}
-                      aria-describedby={f("rr-hint")}
-                      className={cn(
-                        "flex h-8 items-center rounded-lg border border-dashed px-2.5 text-sm font-medium tabular-nums",
-                        Number(sl.autoRr) > 0 && "text-profit",
-                        Number(sl.autoRr) < 0 && "text-loss",
-                      )}
-                    >
-                      {formatR(Number(sl.autoRr))}
-                    </output>
-                    <p id={f("rr-hint")} className="text-xs text-muted-foreground">
-                      Calculated from your entry, exit and SL size.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="relative">
-                      <Input
-                        id={f("rr")}
-                        aria-invalid={!!errors.rr}
-                        aria-describedby={errors.rr ? f("rr-error") : f("rr-hint")}
-                        inputMode="decimal"
-                        placeholder="e.g. 2.5"
-                        className="pr-8 tabular-nums"
-                        {...register("rr")}
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
-                      >
-                        R
-                      </span>
-                    </div>
-                    {!errors.rr && (
-                      <p id={f("rr-hint")} className="text-xs text-muted-foreground">
-                        Add an SL size and exit price to calculate it, or type it in. A loss is
-                        counted as −R automatically.
-                      </p>
-                    )}
-                    <FieldError id={f("rr-error")} message={errors.rr?.message} />
-                  </>
-                )}
-              </div>
-            </div>
-          </fieldset>
-
-          <fieldset className={section}>
-            <legend className={legend}>Risk</legend>
-            <div className="grid gap-4 @lg:grid-cols-2">
-              {field("takeProfit", <>Take profit price {optional}</>, {
-                inputMode: "decimal",
-                className: "tabular-nums",
-              })}
             </div>
           </fieldset>
 

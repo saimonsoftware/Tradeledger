@@ -3,7 +3,9 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 
 import { SignedAmount } from "@/components/common/signed-amount";
+import { PIP_LABEL, pipsBetween } from "@/lib/calculations/rr";
 import { formatPrice, formatR } from "@/lib/format/number";
+import type { TradeSymbol } from "@/lib/trades/constants";
 import type { TradeListItem } from "@/lib/trades/data";
 import { tradesHref, type SortField, type TradeFilters } from "@/lib/trades/filters";
 import { cn } from "@/lib/utils";
@@ -45,6 +47,28 @@ function SortHeader({
   );
 }
 
+/** "10 / 25 pips" (or points for NQ); "Open" badge for open trades without levels. */
+function SlTp({ trade: t }: { trade: TradeListItem }) {
+  const entry = String(t.entry_price);
+  const sl = t.stop_loss === null ? null : pipsBetween(t.symbol, entry, String(t.stop_loss));
+  const tp = t.take_profit === null ? null : pipsBetween(t.symbol, entry, String(t.take_profit));
+  if (sl === null && tp === null) {
+    return t.status === "open" ? (
+      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+        Open
+      </span>
+    ) : (
+      <span className="text-muted-foreground">—</span>
+    );
+  }
+  const unit = t.symbol in PIP_LABEL ? PIP_LABEL[t.symbol as TradeSymbol] : "";
+  return (
+    <span className="whitespace-nowrap">
+      {sl ?? "—"} / {tp ?? "—"} <span className="text-xs text-muted-foreground">{unit}</span>
+    </span>
+  );
+}
+
 export function TradesTable({
   trades,
   filters,
@@ -74,7 +98,7 @@ export function TradesTable({
                 Entry
               </th>
               <th scope="col" className="px-3 py-2.5 text-right font-medium">
-                Exit
+                SL / TP
               </th>
               <SortHeader field="net_pnl" label="Net P&L" filters={filters} align="right" />
               <SortHeader field="r_multiple" label="RR" filters={filters} align="right" />
@@ -122,15 +146,7 @@ export function TradesTable({
                     {formatPrice(t.entry_price)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
-                    {t.exit_price !== null ? (
-                      formatPrice(t.exit_price)
-                    ) : t.status === "open" ? (
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-                        Open
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <SlTp trade={t} />
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     {t.net_pnl === null ? (

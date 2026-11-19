@@ -1,15 +1,13 @@
 import { z } from "zod";
 
-import { stopLossPrice, tradeRr } from "@/lib/calculations/rr";
-import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS, type TradeSymbol } from "@/lib/trades/constants";
+import { checkLevel, suggestedRr } from "@/lib/calculations/rr";
+import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS } from "@/lib/trades/constants";
 
 // Prices: up to 10 integer digits and 8 decimals (numeric(18,8)).
 // Kept as STRINGS end-to-end and sent to Postgres as text, so even values with
 // 18 significant digits (beyond a JS number's precision) are stored exactly.
 const DECIMAL_18_8 = /^\d{1,10}(\.\d{1,8})?$/;
 const MONEY_18_2 = /^\d{1,13}(\.\d{1,2})?$/;
-// SL size in pips/points: up to 5 integer digits and 2 decimals.
-const SL_SIZE = /^\d{1,5}(\.\d{1,2})?$/;
 // Trade RR (result in R): up to 3 integer digits and 2 decimals (numeric(8,2), < 1000).
 const RR = /^\d{1,3}(\.\d{1,2})?$/;
 
@@ -67,7 +65,6 @@ export const tradeSchema = z
     direction: z.enum(DIRECTIONS),
     entryTime: localDateTime,
     entryPrice: positiveDecimal("entry price"),
-    exitPrice: optionalPositiveDecimal("exit price"),
     // The P&L is typed as a positive amount plus a Profit/Loss choice (phone number
     // keypads often have no minus key). Empty = the trade is still open.
     pnlAmount: z
@@ -92,21 +89,8 @@ export const tradeSchema = z
           z.string().regex(RR, "Enter the RR like 2 or 1.5"),
         ]),
       ),
-    // Stop-loss size: pips for EURUSD, points for NQ. The stop PRICE is derived from it.
-    slSize: z
-      .string()
-      .optional()
-      .transform((s) => (s ? clean(s) : ""))
-      .pipe(
-        z.union([
-          z.literal("").transform(() => null),
-          z
-            .string()
-            .regex(SL_SIZE, "Enter the SL size like 10 or 12.5")
-            .refine((s) => Number(s) > 0, "SL size must be greater than 0"),
-        ]),
-      ),
-    takeProfit: optionalPositiveDecimal("take profit"),
+    stopLoss: optionalPositiveDecimal("SL price"),
+    takeProfit: optionalPositiveDecimal("TP price"),
     strategy: z
       .string()
       .trim()
@@ -144,28 +128,30 @@ export const tradeSchema = z
       .pipe(z.union([z.null(), z.number().int().min(1).max(5)])),
   })
   .superRefine((t, ctx) => {
-    const d = derive(t);
-    if (t.slSize !== null && d.stopLoss === null) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["slSize"],
-        message: "That SL size puts the stop below zero. Check the size.",
-      });
-    }
-    if (d.autoRr !== null) {
-      // Calculated RR: it must agree with the Profit/Loss choice.
-      const pnl = t.pnlAmount === null ? null : Number(t.pnlAmount);
-      const rr = Number(d.autoRr);
-      const chosenSign = t.pnlSide === "loss" ? -1 : 1;
-      if (pnl !== null && pnl !== 0 && rr !== 0 && Math.sign(rr) !== chosenSign) {
+    // The stop must be on the losing side of the entry, the target on the winning side.
+    const levels = [
+      ["sl", "stopLoss", t.stopLoss],
+      ["tp", "takeProfit", t.takeProfit],
+    ] as const;
+    for (const [kind, path, price] of levels) {
+      const check = checkLevel(kind, t.direction, t.entryPrice, price);
+      const name = kind === "sl" ? "SL" : "TP";
+      const side = (kind === "tp") === (t.direction === "long") ? "above" : "below";
+      if (check === "at-entry") {
         ctx.addIssue({
           code: "custom",
-          path: ["pnlSide"],
-          message: `Your prices show a ${rr > 0 ? "win" : "loss"} (${rr > 0 ? "+" : ""}${d.autoRr}R) but you chose ${t.pnlSide === "loss" ? "Loss" : "Profit"}.`,
+          path: [path],
+          message: `${name} can't equal the entry price`,
+        });
+      } else if (check === "wrong-side") {
+        ctx.addIssue({
+          code: "custom",
+          path: [path],
+          message: `For a ${t.direction}, the ${name} must be ${side} the entry price`,
         });
       }
-      return;
     }
+
     if (t.rr === null) return;
     if (t.pnlAmount === null) {
       ctx.addIssue({ code: "custom", path: ["rr"], message: "Add the profit or loss first" });
@@ -175,46 +161,27 @@ export const tradeSchema = z
       ctx.addIssue({ code: "custom", path: ["rr"], message: "Only a breakeven trade is 0R" });
     }
   })
-  .transform(({ pnlAmount, pnlSide, rr, slSize, ...rest }) => {
-    const d = derive({ ...rest, slSize });
-    const netPnl = pnlAmount === null ? null : signedMoney(pnlAmount, pnlSide);
+  .transform(({ pnlAmount, pnlSide, rr, ...rest }) => {
+    // The RR the trader typed (or that the form filled in); if empty, the server
+    // works it out the same way: TP hit on a win, SL hit (−1R) on a loss.
+    const rrValue =
+      rr ??
+      suggestedRr({
+        direction: rest.direction,
+        entryPrice: rest.entryPrice,
+        stopLoss: rest.stopLoss,
+        takeProfit: rest.takeProfit,
+        pnlSide,
+        pnlAmount,
+      });
     return {
       ...rest,
       /** Signed P&L as an exact decimal string ("-125.50"), or null while open. */
-      netPnl,
-      /** Stop price derived from the SL size (null when no SL size). */
-      stopLoss: d.stopLoss,
-      /**
-       * Signed result in R. Calculated from entry/exit/SL size when all are given
-       * (null for an open or breakeven trade), otherwise the RR the trader typed.
-       */
-      rMultiple:
-        d.autoRr !== null
-          ? netPnl === null || Number(netPnl) === 0
-            ? null
-            : d.autoRr
-          : rr === null
-            ? null
-            : signedMoney(rr, pnlSide),
+      netPnl: pnlAmount === null ? null : signedMoney(pnlAmount, pnlSide),
+      /** Signed result in R, same sign as the P&L. Null if unknown or the trade is open. */
+      rMultiple: pnlAmount === null || rrValue === null ? null : signedMoney(rrValue, pnlSide),
     };
   });
-
-/** Stop price and calculated RR from the (already validated) fields. */
-function derive(t: {
-  symbol: TradeSymbol;
-  direction: "long" | "short";
-  entryPrice: string;
-  exitPrice: string | null;
-  slSize: string | null;
-}) {
-  if (t.slSize === null) return { stopLoss: null, autoRr: null };
-  return {
-    stopLoss: stopLossPrice(t.symbol, t.direction, t.entryPrice, t.slSize),
-    autoRr: t.exitPrice
-      ? tradeRr(t.symbol, t.direction, t.entryPrice, t.exitPrice, t.slSize)
-      : null,
-  };
-}
 
 export type TradeInput = z.input<typeof tradeSchema>;
 export type TradeOutput = z.output<typeof tradeSchema>;

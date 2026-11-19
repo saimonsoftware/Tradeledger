@@ -40,7 +40,7 @@ function toRow(v: TradeOutput, tz: string) {
     direction: v.direction,
     entry_time: toUtc(v.entryTime, tz),
     entry_price: numeric(v.entryPrice),
-    exit_price: numericOrNull(v.exitPrice),
+    exit_price: null, // no longer collected (SL/TP prices instead)
     net_pnl: numericOrNull(v.netPnl),
     r_multiple: numericOrNull(v.rMultiple),
     stop_loss: numericOrNull(v.stopLoss),

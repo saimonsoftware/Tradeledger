@@ -8,11 +8,10 @@ const base: TradeInput = {
   direction: "long",
   entryTime: "2026-11-16T14:30",
   entryPrice: "21,480",
-  exitPrice: "21500",
   pnlAmount: "391.60",
   pnlSide: "profit",
   rr: "2.5",
-  slSize: "",
+  stopLoss: "",
   takeProfit: "",
   strategy: " ORB ",
   tags: "A+ setup, patient, A+ setup,",
@@ -25,7 +24,6 @@ describe("tradeSchema", () => {
     const r = tradeSchema.parse(base);
     expect(r.symbol).toBe("NQ");
     expect(r.entryPrice).toBe("21480");
-    expect(r.exitPrice).toBe("21500");
     expect(r.netPnl).toBe("391.60");
     expect(r.stopLoss).toBeNull(); // no SL size
     expect(r.strategy).toBe("ORB");
@@ -62,53 +60,40 @@ describe("tradeSchema", () => {
     expect(issue({ rr: "1000" })?.path).toEqual(["rr"]);
   });
 
-  describe("SL size", () => {
-    // NQ long 21480 → 21500 with a 20-point SL: +1R, stop at 21460.
-    const withSl = { ...base, slSize: "20", rr: "" };
+  describe("SL and TP prices", () => {
+    // NQ long at 21480, SL 21460 (20 points), TP 21530 (50 points) = 1 : 2.5
+    const withLevels = { ...base, stopLoss: "21460", takeProfit: "21530", rr: "" };
 
-    it("derives the stop price and calculates the RR (ignoring a typed RR)", () => {
-      const r = tradeSchema.parse({ ...withSl, rr: "9" });
-      expect(r.stopLoss).toBe("21460");
-      expect(r.rMultiple).toBe("1.00");
+    it("works out the RR when none is typed: TP hit on a win, SL hit on a loss", () => {
+      const win = tradeSchema.parse(withLevels);
+      expect(win.stopLoss).toBe("21460");
+      expect(win.takeProfit).toBe("21530");
+      expect(win.rMultiple).toBe("2.50");
+      expect(tradeSchema.parse({ ...withLevels, pnlSide: "loss" }).rMultiple).toBe("-1.00");
     });
 
-    it("works for EURUSD in pips, and for shorts", () => {
-      const r = tradeSchema.parse({
-        ...withSl,
-        symbol: "EURUSD",
-        direction: "short",
-        entryPrice: "1.0852",
-        exitPrice: "1.0827",
-        slSize: "10",
+    it("keeps a typed RR (closed early)", () => {
+      expect(tradeSchema.parse({ ...withLevels, rr: "1.2" }).rMultiple).toBe("1.2");
+    });
+
+    it("no RR for an open trade", () => {
+      expect(tradeSchema.parse({ ...withLevels, pnlAmount: "" }).rMultiple).toBeNull();
+    });
+
+    it.each([
+      ["long", "stopLoss", "21500", /must be below/],
+      ["long", "takeProfit", "21400", /must be above/],
+      ["short", "stopLoss", "21400", /must be above/],
+      ["long", "stopLoss", "21480", /can't equal/],
+    ] as const)("%s: rejects %s at %s", (direction, field, value, message) => {
+      const r = tradeSchema.safeParse({
+        ...withLevels,
+        direction,
+        ...(direction === "short" ? { stopLoss: "21500", takeProfit: "21430" } : {}),
+        [field]: value,
       });
-      expect(r.stopLoss).toBe("1.0862");
-      expect(r.rMultiple).toBe("2.50");
-    });
-
-    it("flags prices that disagree with the Profit/Loss choice", () => {
-      const r = tradeSchema.safeParse({ ...withSl, pnlSide: "loss" });
-      expect(!r.success && r.error.issues[0].path).toEqual(["pnlSide"]);
-      expect(!r.success && r.error.issues[0].message).toMatch(/win \(\+1.00R\)/);
-    });
-
-    it("keeps the stop but no RR for an open trade", () => {
-      const r = tradeSchema.parse({ ...withSl, pnlAmount: "", exitPrice: "" });
-      expect(r.stopLoss).toBe("21460");
-      expect(r.rMultiple).toBeNull();
-    });
-
-    it("rejects a stop below zero and bad sizes", () => {
-      const below = tradeSchema.safeParse({
-        ...withSl,
-        symbol: "EURUSD",
-        entryPrice: "1.0852",
-        exitPrice: "1.09",
-        slSize: "20000",
-      });
-      expect(!below.success && below.error.issues[0].path).toEqual(["slSize"]);
-      for (const slSize of ["0", "-5", "abc", "1.234"]) {
-        expect(tradeSchema.safeParse({ ...withSl, slSize }).success).toBe(false);
-      }
+      expect(!r.success && r.error.issues[0].path).toEqual([field]);
+      expect(!r.success && r.error.issues[0].message).toMatch(message);
     });
   });
 
@@ -119,10 +104,9 @@ describe("tradeSchema", () => {
     expect(signedMoney("0", "loss")).toBe("0");
   });
 
-  it("accepts an open trade (no P&L, no exit price)", () => {
-    const r = tradeSchema.parse({ ...base, pnlAmount: "", exitPrice: "", rr: "" });
+  it("accepts an open trade (no P&L)", () => {
+    const r = tradeSchema.parse({ ...base, pnlAmount: "", rr: "" });
     expect(r.netPnl).toBeNull();
-    expect(r.exitPrice).toBeNull();
   });
 
   it("keeps high-precision prices as exact strings", () => {
@@ -135,7 +119,8 @@ describe("tradeSchema", () => {
     ["symbol", "nq"],
     ["entryPrice", "0"],
     ["entryPrice", "-5"],
-    ["exitPrice", "abc"],
+    ["stopLoss", "abc"],
+    ["takeProfit", "-1"],
     ["pnlAmount", "-20"],
     ["pnlAmount", "12.345"],
     ["pnlAmount", "abc"],

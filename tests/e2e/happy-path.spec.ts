@@ -96,13 +96,14 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await page.getByRole("option", { name: new RegExp(ACCOUNT) }).click();
   await sheet.getByRole("radio", { name: "NQ" }).click();
   await sheet.getByLabel("Entry price").fill("21480");
-  await sheet.getByLabel(/Exit price/).fill("21520");
+  await sheet.getByLabel(/SL price/).fill("21460");
+  await sheet.getByLabel(/TP price/).fill("21520");
+  await expect(sheet.getByText("SL: 20 points")).toBeVisible();
+  await expect(sheet.getByText(/TP: 40 points · planned 1 : 2.00/)).toBeVisible();
   await sheet.getByRole("radio", { name: /Profit/ }).click();
   await sheet.getByLabel(/^Amount/).fill("123");
-  await sheet.getByLabel(/SL size/).fill("20");
-  // Stop price and RR are calculated: long 21480 → 21520 with a 20-point stop = +2R.
-  await expect(sheet.getByText("21,460")).toBeVisible();
-  await expect(sheet.locator("output")).toHaveText("+2.00R");
+  // A profit means the TP was hit: the RR fills in as 40 ÷ 20 = 2.
+  await expect(sheet.getByLabel(/Trade RR/)).toHaveValue("2.00");
   await expect(sheet.getByText("+US$123.00").filter({ visible: true }).first()).toBeVisible();
   // Attach a screenshot before saving (uploaded right after the trade is created).
   await sheet.locator('input[type="file"]').setInputFiles({
@@ -123,6 +124,7 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(page.getByRole("button", { name: "View screenshot 1" })).toBeVisible();
   await expect(page.getByLabel("Results")).toContainText("+2.00R");
   await expect(page.getByText("21,460 · 20 points")).toBeVisible();
+  await expect(page.getByText("21,520 · 40 points")).toBeVisible();
 
   // Account balance includes the trade: 10,000 + 123 = 10,123.00
   await page.goto(accountUrl);

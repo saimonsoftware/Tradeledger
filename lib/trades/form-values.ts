@@ -1,6 +1,5 @@
 import { formatInTimeZone } from "date-fns-tz";
 
-import { slSizeFromStop } from "@/lib/calculations/rr";
 import type { TradeInput } from "@/lib/validation/trades";
 
 type TradeLike = {
@@ -9,7 +8,6 @@ type TradeLike = {
   direction: string;
   entry_time: string;
   entry_price: number;
-  exit_price: number | null;
   net_pnl: number | null;
   r_multiple: number | null;
   stop_loss: number | null;
@@ -30,11 +28,10 @@ export function emptyTradeValues(nowLocal: string, accountId = ""): TradeInput {
     direction: "long",
     entryTime: nowLocal,
     entryPrice: "",
-    exitPrice: "",
     pnlAmount: "",
     pnlSide: "profit",
     rr: "",
-    slSize: "",
+    stopLoss: "",
     takeProfit: "",
     strategy: "",
     tags: "",
@@ -53,15 +50,10 @@ export function tradeToFormValues(t: TradeLike, tz: string): TradeInput {
     direction: t.direction as TradeInput["direction"],
     entryTime: local(t.entry_time, tz),
     entryPrice: str(t.entry_price),
-    exitPrice: str(t.exit_price),
     pnlAmount: pnl === null ? "" : pnl.replace(/^-/, ""),
     pnlSide: pnl?.startsWith("-") ? "loss" : "profit",
     rr: t.r_multiple === null ? "" : String(Math.abs(Number(t.r_multiple))),
-    slSize: slSizeFromStop(
-      t.symbol,
-      str(t.entry_price),
-      t.stop_loss === null ? null : str(t.stop_loss),
-    ),
+    stopLoss: str(t.stop_loss),
     takeProfit: str(t.take_profit),
     strategy: t.strategy ?? "",
     tags: t.tags.join(", "),

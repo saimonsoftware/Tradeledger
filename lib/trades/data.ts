@@ -14,7 +14,7 @@ import type { TradeFilters } from "./filters";
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 const LIST_COLUMNS =
-  "id, symbol, direction, entry_time, exit_time, entry_price, exit_price, net_pnl, r_multiple, status, strategy, account:trading_accounts(id, name, currency)";
+  "id, symbol, direction, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, status, strategy, account:trading_accounts(id, name, currency)";
 
 /**
  * Applies the list filters to a trades query. Date filters are calendar days in
