@@ -7,6 +7,7 @@ import {
   LineChart,
   NotebookTabs,
   Settings,
+  Sparkles,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -36,6 +37,7 @@ type NavItem = { href: string; label: string; icon: LucideIcon };
 const MAIN: NavItem[] = [
   { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/trades", label: "Trades", icon: BookOpen },
+  { href: "/app/coach", label: "AI Coach", icon: Sparkles },
   { href: "/app/accounts", label: "Accounts", icon: Wallet },
 ];
 

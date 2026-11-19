@@ -20,6 +20,7 @@
     "test:tz": "TZ=Pacific/Kiritimati vitest run tests/unit/week.test.ts && TZ=America/Los_Angeles vitest run tests/unit/week.test.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.11.0",
     "@hookform/resolvers": "^7.0.7",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.1",

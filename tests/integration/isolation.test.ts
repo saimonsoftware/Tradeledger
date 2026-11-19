@@ -121,6 +121,7 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
 
   afterAll(async () => {
     if (!A || !B) return;
+    await A.from("ai_reports").delete().eq("user_id", aId); // also removes their chat messages
     await A.from("trading_accounts").delete().eq("user_id", aId);
     await B.from("trading_accounts").delete().eq("user_id", bId);
     await A.auth.signOut();

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { AiCoachSetting } from "@/components/settings/ai-coach-setting";
 import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { DeleteAccount } from "@/components/settings/delete-account";
 import { ProfileForm } from "@/components/settings/profile-form";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTotpStatus } from "@/lib/auth/mfa-actions";
 import { requireUser } from "@/lib/auth/dal";
+import { getCoachStatus } from "@/lib/coach/data";
 import { getProfile } from "@/lib/profile/data";
 import { signOutEverywhere } from "@/lib/settings/actions";
 import type { ProfileInput } from "@/lib/validation/settings";
@@ -75,6 +77,11 @@ async function TwoFactorSection() {
   return <TwoFactor enabled={enabled} />;
 }
 
+async function AiCoachSection() {
+  const { consented } = await getCoachStatus();
+  return <AiCoachSetting enabled={consented} />;
+}
+
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
@@ -100,6 +107,16 @@ export default function SettingsPage() {
         description="You'll stay signed in here; other devices are signed out."
       >
         <ChangePasswordForm />
+      </Section>
+
+      <Section
+        id="ai-title"
+        title="AI Coach"
+        description="Controls whether your trading data can be analysed by AI."
+      >
+        <Suspense fallback={<Skeleton className="h-10 rounded-lg" />}>
+          <AiCoachSection />
+        </Suspense>
       </Section>
 
       <Section

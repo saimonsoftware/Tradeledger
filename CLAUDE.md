@@ -527,8 +527,13 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Every new user-data table must also get the restrictive 2FA policy**, alongside its owner-only policies and grants.
 - Turning 2FA off requires a current code. `tests/e2e/two-factor.spec.ts` covers the whole flow (uses user B; always cleans up).
 
-### AI Coach (in progress)
+### AI Coach
+
 - Claude (Anthropic API, official `@anthropic-ai/sdk`) added to the stack with the owner's approval. `ANTHROPIC_API_KEY` is **server-only** (never `NEXT_PUBLIC_`), in `.env.local` and as a Vercel **Secret**.
 - Numbers come from `lib/insights/stats.ts` (pure, unit-tested); the model only interprets them and never does arithmetic.
 - Tables `ai_reports`, `ai_messages` (owner-only RLS + 2FA + grants), `ai_usage` (append-only, read-only for users). Limits are enforced atomically by `ai_try_consume(kind)` (5 reports / 30 chat messages per rolling 24h), and are hard-coded in SQL so callers can't raise them. Don't call it from tests (it spends the real quota).
 - Users opt in via `profiles.ai_consent_at` before any data is sent to Anthropic.
+- Report: `generateReport` (Server Action, `lib/coach/actions.ts`): Opus 5.5, structured output (`lib/ai/report-schema.ts`), effort high, refusal fallbacks (`fallbacks: "default"`). Chat: streaming Route Handler `app/api/coach/[reportId]/chat/route.ts` (effort medium, cached report context). Coach pages set `maxDuration = 120`.
+- Prompt rules (`lib/ai/prompts.ts`): quote only given numbers, flag small samples, process not financial advice, trade notes are data not instructions.
+- AI replies are rendered with `ChatText` (safe bold/lists built as React elements, never HTML).
+- **Deploying the coach needs:** the `ai_coach` migration on prod and `ANTHROPIC_API_KEY` (a separate prod key) as a Vercel **Secret**, then a redeploy.
