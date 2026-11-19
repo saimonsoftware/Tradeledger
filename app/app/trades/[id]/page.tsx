@@ -10,8 +10,10 @@ import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeScreenshots } from "@/components/trades/trade-screenshots";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SL_UNIT_LABEL, slSizeFromStop } from "@/lib/calculations/rr";
 import { formatPrice, formatR } from "@/lib/format/number";
 import { getProfile } from "@/lib/profile/data";
+import type { TradeSymbol } from "@/lib/trades/constants";
 import { getScreenshotsForTrade, getTrade } from "@/lib/trades/data";
 import { cn } from "@/lib/utils";
 import { idSchema } from "@/lib/validation/accounts";
@@ -31,6 +33,11 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
   const cur = trade.account?.currency ?? "EUR";
   const fmtTime = (iso: string | null) =>
     iso ? formatInTimeZone(iso, timezone, "EEE d MMM yyyy, HH:mm") : "—";
+  const slSize = slSizeFromStop(
+    trade.symbol,
+    String(trade.entry_price),
+    trade.stop_loss === null ? null : String(trade.stop_loss),
+  );
   const net = trade.net_pnl === null ? null : Number(trade.net_pnl);
   const result = net === null ? "Open" : net > 0 ? "Win" : net < 0 ? "Loss" : "Breakeven";
 
@@ -39,7 +46,22 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
     ["Entry time", fmtTime(trade.entry_time)],
     ["Entry price", formatPrice(trade.entry_price)],
     ["Exit price", formatPrice(trade.exit_price)],
-    ["Stop loss", formatPrice(trade.stop_loss)],
+    [
+      "Stop loss",
+      trade.stop_loss === null ? (
+        "—"
+      ) : (
+        <>
+          {formatPrice(trade.stop_loss)}
+          {slSize && (
+            <span className="text-muted-foreground">
+              {" "}
+              · {slSize} {SL_UNIT_LABEL[trade.symbol as TradeSymbol]}
+            </span>
+          )}
+        </>
+      ),
+    ],
     ["Take profit", formatPrice(trade.take_profit)],
     ["Strategy", trade.strategy ?? "—"],
   ];

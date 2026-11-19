@@ -12,7 +12,7 @@ const base: TradeInput = {
   pnlAmount: "391.60",
   pnlSide: "profit",
   rr: "2.5",
-  stopLoss: "",
+  slSize: "",
   takeProfit: "",
   strategy: " ORB ",
   tags: "A+ setup, patient, A+ setup,",
@@ -27,7 +27,7 @@ describe("tradeSchema", () => {
     expect(r.entryPrice).toBe("21480");
     expect(r.exitPrice).toBe("21500");
     expect(r.netPnl).toBe("391.60");
-    expect(r.stopLoss).toBeNull();
+    expect(r.stopLoss).toBeNull(); // no SL size
     expect(r.strategy).toBe("ORB");
     expect(r.tags).toEqual(["A+ setup", "patient"]);
     expect(r.notes).toBeNull();
@@ -60,6 +60,56 @@ describe("tradeSchema", () => {
     expect(issue({ rr: "0" })?.message).toMatch(/Only a breakeven/);
     expect(issue({ rr: "-2" })?.path).toEqual(["rr"]);
     expect(issue({ rr: "1000" })?.path).toEqual(["rr"]);
+  });
+
+  describe("SL size", () => {
+    // NQ long 21480 → 21500 with a 20-point SL: +1R, stop at 21460.
+    const withSl = { ...base, slSize: "20", rr: "" };
+
+    it("derives the stop price and calculates the RR (ignoring a typed RR)", () => {
+      const r = tradeSchema.parse({ ...withSl, rr: "9" });
+      expect(r.stopLoss).toBe("21460");
+      expect(r.rMultiple).toBe("1.00");
+    });
+
+    it("works for EURUSD in pips, and for shorts", () => {
+      const r = tradeSchema.parse({
+        ...withSl,
+        symbol: "EURUSD",
+        direction: "short",
+        entryPrice: "1.0852",
+        exitPrice: "1.0827",
+        slSize: "10",
+      });
+      expect(r.stopLoss).toBe("1.0862");
+      expect(r.rMultiple).toBe("2.50");
+    });
+
+    it("flags prices that disagree with the Profit/Loss choice", () => {
+      const r = tradeSchema.safeParse({ ...withSl, pnlSide: "loss" });
+      expect(!r.success && r.error.issues[0].path).toEqual(["pnlSide"]);
+      expect(!r.success && r.error.issues[0].message).toMatch(/win \(\+1.00R\)/);
+    });
+
+    it("keeps the stop but no RR for an open trade", () => {
+      const r = tradeSchema.parse({ ...withSl, pnlAmount: "", exitPrice: "" });
+      expect(r.stopLoss).toBe("21460");
+      expect(r.rMultiple).toBeNull();
+    });
+
+    it("rejects a stop below zero and bad sizes", () => {
+      const below = tradeSchema.safeParse({
+        ...withSl,
+        symbol: "EURUSD",
+        entryPrice: "1.0852",
+        exitPrice: "1.09",
+        slSize: "20000",
+      });
+      expect(!below.success && below.error.issues[0].path).toEqual(["slSize"]);
+      for (const slSize of ["0", "-5", "abc", "1.234"]) {
+        expect(tradeSchema.safeParse({ ...withSl, slSize }).success).toBe(false);
+      }
+    });
   });
 
   it("treats zero as breakeven, never -0", () => {
