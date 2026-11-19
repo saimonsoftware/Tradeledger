@@ -4,7 +4,6 @@ import {
   computeInsightStats,
   groupStats,
   type GroupStats,
-  holdingBucket,
   MIN_SAMPLE,
   sessionOf,
   type StatTrade,
@@ -64,27 +63,6 @@ describe("groupStats", () => {
   });
 });
 
-describe("holdingBucket", () => {
-  it.each([
-    ["2026-11-16T14:30:00Z", "2026-11-16T14:32:00Z", "under 5 min"],
-    ["2026-11-16T14:30:00Z", "2026-11-16T14:50:00Z", "5–30 min"],
-    ["2026-11-16T14:30:00Z", "2026-11-16T15:45:00Z", "30 min–2 h"],
-    ["2026-11-16T14:30:00Z", "2026-11-16T20:00:00Z", "2 h–1 day"],
-    ["2026-11-16T14:30:00Z", "2026-11-18T14:30:00Z", "over 1 day"],
-  ])("%s → %s = %s", (a, b, expected) => {
-    expect(holdingBucket(a, b)).toBe(expected);
-  });
-
-  it("skips trades without a real exit time (exit = entry)", () => {
-    expect(holdingBucket("2026-11-16T14:30:00Z", "2026-11-16T14:30:00Z")).toBeNull();
-    const s = computeInsightStats(
-      [t({ exitTime: "2026-11-16T14:30:00Z" }), t({ exitTime: "2026-11-16T14:30:00Z" })],
-      "UTC",
-    );
-    expect(s.byHoldingTime).toEqual([]);
-  });
-});
-
 describe("sessionOf (Irish time, summer time aware)", () => {
   it.each([
     // November: Ireland is UTC+0
@@ -121,6 +99,7 @@ describe("strategy combinations", () => {
     expect(key(s.byStrategySession)["ORB · New York AM"].trades).toBe(3);
     expect(s.bySession.map((g) => g.key)).toEqual(["London", "New York AM"]);
     expect(s.definitions.sessions).toMatch(/Irish time/);
+    expect(s).not.toHaveProperty("byHoldingTime");
   });
 });
 
