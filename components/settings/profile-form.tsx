@@ -15,7 +15,7 @@ import { profileSchema, type ProfileInput, type ProfileOutput } from "@/lib/vali
 import { useState } from "react";
 
 const selectClass =
-  "h-8 w-full rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+  "h-8 w-full rounded-lg border border-input bg-background px-2 text-base md:text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function ProfileForm({
   defaultValues,

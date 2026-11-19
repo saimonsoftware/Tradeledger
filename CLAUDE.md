@@ -545,3 +545,9 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Conversations are append-only and replayed verbatim:** `coach_messages.content` stores the exact API content (thinking, tool_use, tool_result). Never edit, filter or rebuild earlier turns, and never change `ASSISTANT_SYSTEM_PROMPT` per request (preserved-thinking history-editing check). Users can only delete whole conversations.
 - Limits: `ai_try_consume('assistant')` = 30 per rolling 24h, separate from report chat (30) and reports (5).
 - `/app/playbook`: `trading_rules` (manual or `source = 'ai'` when approved from a proposal), with up/down reordering.
+
+### Mobile web app (installable)
+
+- `app/manifest.ts` (standalone, opens at `/app/dashboard`), `app/apple-icon.png`, `public/icons/*` (192/512 + maskable). No offline mode / service worker.
+- `viewportFit: "cover"`: the body pads `env(safe-area-inset-*)`; `fixed` elements (sheets) and sticky bottom bars must add `env(safe-area-inset-bottom)` themselves.
+- Form controls must be ≥16px on mobile (`text-base md:text-sm`), or iOS zooms in on focus. This includes native `<select>`s.

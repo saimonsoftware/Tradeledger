@@ -549,7 +549,7 @@ export function TradeForm({
         </div>
 
         {/* Narrow layouts: compact live preview + submit, pinned to the bottom. */}
-        <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t bg-popover/95 px-4 py-3 backdrop-blur @3xl:hidden">
+        <div className="sticky bottom-0 z-10 -mx-4 flex items-center gap-3 border-t bg-popover/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur @3xl:hidden">
           <CompactPreview control={control} currency={currency} />
           {onCancel && (
             <Button type="button" variant="ghost" className="h-10" onClick={onCancel}>

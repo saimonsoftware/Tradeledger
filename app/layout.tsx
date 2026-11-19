@@ -32,10 +32,15 @@ export const metadata: Metadata = {
     title: `${siteConfig.name}: ${siteConfig.tagline}`,
     description: siteConfig.description,
   },
+  // iPhone "Add to Home Screen": open full-screen with our name and icon.
+  appleWebApp: { capable: true, title: siteConfig.name, statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 // Matches the browser UI (address bar on mobile) to the active theme.
 export const viewport: Viewport = {
+  // Use the whole screen (incl. around the notch); safe-area padding keeps content clear.
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#000000" },
     { media: "(prefers-color-scheme: light)", color: "#fbfbfd" },
