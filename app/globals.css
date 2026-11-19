@@ -28,6 +28,8 @@
   --color-loss: var(--loss);
   --color-loss-muted: var(--loss-muted);
   --color-neutral: var(--neutral);
+  --color-chart-profit: var(--chart-profit);
+  --color-chart-loss: var(--chart-loss);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -93,6 +95,11 @@
   --loss-muted: oklch(0.95 0.03 15);
   --neutral: oklch(0.48 0.025 262);
 
+  /* Chart marks (bars), separate from text colours. Validated with the dataviz
+     palette checker: CVD ΔE 21.9 (deutan) on white. Text keeps --profit/--loss. */
+  --chart-profit: oklch(0.68 0.14 162);
+  --chart-loss: oklch(0.45 0.18 20);
+
   --chart-1: oklch(0.53 0.22 262);
   --chart-2: oklch(0.6 0.14 162);
   --chart-3: oklch(0.6 0.2 15);
@@ -136,6 +143,10 @@
   --loss: oklch(0.72 0.17 15);
   --loss-muted: oklch(0.26 0.06 15);
   --neutral: oklch(0.7 0 0);
+
+  /* Chart marks: CVD ΔE 16.9 (deutan) on the dark surface. */
+  --chart-profit: oklch(0.66 0.15 165);
+  --chart-loss: oklch(0.49 0.18 25);
 
   --chart-1: oklch(0.65 0.2 262);
   --chart-2: oklch(0.75 0.15 162);

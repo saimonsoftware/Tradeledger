@@ -13,9 +13,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         </Link>
         <ThemeToggle />
       </header>
-      <main id="main" className="flex flex-1 items-center justify-center px-4 py-12">
-        {children}
-      </main>
+      <main className="flex flex-1 items-center justify-center px-4 py-12">{children}</main>
     </div>
   );
 }

@@ -10,13 +10,14 @@
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:tz",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:types": "supabase gen types typescript --remote --schema public > lib/supabase/database.types.ts",
-    "db:push": "supabase db push --remote"
+    "db:push": "supabase db push --remote",
+    "test:tz": "TZ=Pacific/Kiritimati vitest run tests/unit/week.test.ts && TZ=America/Los_Angeles vitest run tests/unit/week.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.7",

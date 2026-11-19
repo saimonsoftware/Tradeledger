@@ -498,3 +498,11 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Responsive forms inside panels: use container queries** (`@container`, `@lg:`, `@3xl:`) so layout follows the form's own width, not the viewport.
 - **Wide tables:** the app content wrapper and `SidebarInset` need `min-w-0`, and a scroll box containing `sr-only` (absolutely positioned) elements needs `relative`, or the page scrolls sideways on mobile.
 - Sheet width: override with `data-[side=right]:sm:max-w-…` (the default sheet rule uses that selector).
+
+### Dashboard notes (Phase 6)
+
+- Week logic lives in `lib/calculations/week.ts`: calendar maths on "yyyy-MM-dd" strings in the user's timezone; only the boundaries become UTC instants ([start, end)). `npm test` also runs the week tests with the SERVER in UTC+14 and UTC−8 (`test:tz`) to prove server timezone never matters.
+- Dashboard sums money in integer cents, groups everything by currency, and never converts between currencies. The chart shows one currency at a time (profile default first, switchable via `?currency=`).
+- **Chart colours are separate from text colours:** `--chart-profit` / `--chart-loss` (bars) were validated with the dataviz palette checker (CVD ΔE ≥ 16.9 both modes); `--profit` / `--loss` stay for text. Because bar contrast vs surface is < 3:1, the chart must keep its visible axis values and the "Show as table" view.
+- Chart conventions: ≤24px bars, 4px rounded data end, solid hairline horizontal grid, zero reference line, per-bar tooltip, `accessibilityLayer` (keyboard), true minus signs.
+- Unique ids across layouts: only the marketing layout uses `id="main"` (skip link); the app content is `#app-content`.
