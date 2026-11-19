@@ -1,0 +1,305 @@
+/**
+ * TWO-USER DATA ISOLATION TEST (CLAUDE.md rule 3.1.12)
+ *
+ * Logs in as two real users through Supabase's public API, exactly as the app
+ * (or an attacker with their own account) would, and proves that User B can't
+ * read, change, delete, or attach anything to User A's data.
+ *
+ * Needs .env.local (Supabase URL + publishable key) and .env.test.local
+ * (two test users). No service_role key is used anywhere.
+ */
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import type { Database } from "@/lib/supabase/database.types";
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const creds = {
+  a: { email: process.env.ISOLATION_USER_A_EMAIL, password: process.env.ISOLATION_USER_A_PASSWORD },
+  b: { email: process.env.ISOLATION_USER_B_EMAIL, password: process.env.ISOLATION_USER_B_PASSWORD },
+};
+const configured = Boolean(
+  url && key && creds.a.email && creds.a.password && creds.b.email && creds.b.password,
+);
+
+if (!configured) {
+  console.warn(
+    "\n⚠️  Data isolation test SKIPPED: set up .env.local and .env.test.local (see .env.example).\n",
+  );
+}
+
+type Client = SupabaseClient<Database>;
+
+const newClient = (): Client =>
+  createClient<Database>(url!, key!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+async function signIn(email: string, password: string) {
+  const client = newClient();
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data.user) throw new Error(`Could not sign in ${email}: ${error?.message}`);
+  return { client, userId: data.user.id };
+}
+
+describe.skipIf(!configured)("data isolation between users (RLS)", () => {
+  let A: Client;
+  let B: Client;
+  let anon: Client;
+  let aId: string;
+  let bId: string;
+  let aAccountId: string;
+  let aTradeId: string;
+  let aTxId: string;
+  let bAccountId: string;
+
+  beforeAll(async () => {
+    ({ client: A, userId: aId } = await signIn(creds.a.email!, creds.a.password!));
+    ({ client: B, userId: bId } = await signIn(creds.b.email!, creds.b.password!));
+    anon = newClient();
+
+    // Start clean (deleting accounts cascades to their trades and transactions).
+    await A.from("trading_accounts").delete().eq("user_id", aId);
+    await B.from("trading_accounts").delete().eq("user_id", bId);
+
+    // --- User A creates an account, a deposit and a closed trade ---
+    const acc = await A.from("trading_accounts")
+      .insert({
+        name: "A's Prop Account",
+        account_type: "prop_challenge",
+        currency: "USD",
+        starting_balance: 10000,
+        start_date: "2026-01-01",
+      })
+      .select()
+      .single();
+    expect(acc.error).toBeNull();
+    aAccountId = acc.data!.id;
+
+    const tx = await A.from("account_transactions")
+      .insert({ account_id: aAccountId, type: "deposit", amount: 500 })
+      .select()
+      .single();
+    expect(tx.error).toBeNull();
+    aTxId = tx.data!.id;
+
+    const trade = await A.from("trades")
+      .insert({
+        account_id: aAccountId,
+        symbol: "NQ",
+        asset_class: "future",
+        direction: "long",
+        entry_time: "2026-11-16T14:30:00Z",
+        entry_price: 21480,
+        quantity: 2,
+        multiplier: 20,
+        exit_time: "2026-11-16T15:00:00Z",
+        exit_price: 21500,
+        fees: 8.4,
+        stop_loss: 21470,
+        notes: "A's private note",
+      })
+      .select()
+      .single();
+    expect(trade.error).toBeNull();
+    aTradeId = trade.data!.id;
+
+    // B gets an account of their own (used for the "move it to A" attack).
+    const bAcc = await B.from("trading_accounts")
+      .insert({
+        name: "B's Account",
+        account_type: "demo",
+        starting_balance: 1000,
+        start_date: "2026-01-01",
+      })
+      .select()
+      .single();
+    expect(bAcc.error).toBeNull();
+    bAccountId = bAcc.data!.id;
+  }, 30_000);
+
+  afterAll(async () => {
+    if (!A || !B) return;
+    await A.from("trading_accounts").delete().eq("user_id", aId);
+    await B.from("trading_accounts").delete().eq("user_id", bId);
+    await A.auth.signOut();
+    await B.auth.signOut();
+  });
+
+  // ---------------------------------------------------------------- sanity
+  describe("User A (the owner)", () => {
+    it("can read their own data, with P&L computed by the database", async () => {
+      const { data, error } = await A.from("trades").select("*").eq("id", aTradeId).single();
+      expect(error).toBeNull();
+      expect(Number(data!.gross_pnl)).toBe(800);
+      expect(Number(data!.net_pnl)).toBe(791.6);
+      expect(Number(data!.r_multiple)).toBe(1.98);
+      expect(data!.status).toBe("closed");
+      expect(data!.user_id).toBe(aId);
+    });
+
+    it("sees the correct balance (10000 + 500 + 791.60)", async () => {
+      const { data } = await A.from("account_balances")
+        .select("current_balance")
+        .eq("account_id", aAccountId)
+        .single();
+      expect(Number(data!.current_balance)).toBe(11291.6);
+    });
+  });
+
+  // ---------------------------------------------------------------- READ
+  describe("User B cannot READ User A's data", () => {
+    it("trading account", async () => {
+      const { data } = await B.from("trading_accounts").select("*").eq("id", aAccountId);
+      expect(data).toEqual([]);
+    });
+
+    it("trade (including notes)", async () => {
+      const { data } = await B.from("trades").select("*").eq("id", aTradeId);
+      expect(data).toEqual([]);
+    });
+
+    it("deposit / withdrawal", async () => {
+      const { data } = await B.from("account_transactions").select("*").eq("id", aTxId);
+      expect(data).toEqual([]);
+    });
+
+    it("balance (view respects RLS)", async () => {
+      const { data } = await B.from("account_balances").select("*").eq("account_id", aAccountId);
+      expect(data).toEqual([]);
+    });
+
+    it("profile", async () => {
+      const { data } = await B.from("profiles").select("*").eq("id", aId);
+      expect(data).toEqual([]);
+    });
+
+    it("anything at all when listing without filters", async () => {
+      const [acc, trades, txs] = await Promise.all([
+        B.from("trading_accounts").select("user_id"),
+        B.from("trades").select("user_id"),
+        B.from("account_transactions").select("user_id"),
+      ]);
+      for (const rows of [acc.data, trades.data, txs.data]) {
+        expect(rows?.every((r) => r.user_id === bId)).toBe(true);
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------- UPDATE
+  describe("User B cannot UPDATE User A's data", () => {
+    it("trade", async () => {
+      const { data } = await B.from("trades")
+        .update({ fees: 9999, notes: "hacked" })
+        .eq("id", aTradeId)
+        .select();
+      expect(data).toEqual([]);
+      const { data: still } = await A.from("trades")
+        .select("fees, notes")
+        .eq("id", aTradeId)
+        .single();
+      expect(Number(still!.fees)).toBe(8.4);
+      expect(still!.notes).toBe("A's private note");
+    });
+
+    it("trading account", async () => {
+      const { data } = await B.from("trading_accounts")
+        .update({ name: "pwned" })
+        .eq("id", aAccountId)
+        .select();
+      expect(data).toEqual([]);
+    });
+
+    it("profile", async () => {
+      const { data } = await B.from("profiles")
+        .update({ display_name: "pwned" })
+        .eq("id", aId)
+        .select();
+      expect(data).toEqual([]);
+    });
+  });
+
+  // ---------------------------------------------------------------- DELETE
+  describe("User B cannot DELETE User A's data", () => {
+    it("trade, deposit, or account", async () => {
+      const t = await B.from("trades").delete().eq("id", aTradeId).select();
+      const x = await B.from("account_transactions").delete().eq("id", aTxId).select();
+      const a = await B.from("trading_accounts").delete().eq("id", aAccountId).select();
+      expect(t.data).toEqual([]);
+      expect(x.data).toEqual([]);
+      expect(a.data).toEqual([]);
+
+      // Everything is still there for A.
+      const { count } = await A.from("trades")
+        .select("*", { count: "exact", head: true })
+        .eq("id", aTradeId);
+      expect(count).toBe(1);
+    });
+  });
+
+  // ---------------------------------------------------------------- INSERT / tampering
+  describe("User B cannot attach data to User A", () => {
+    it("cannot add a trade to A's account", async () => {
+      const { error } = await B.from("trades").insert({
+        account_id: aAccountId,
+        symbol: "ES",
+        asset_class: "future",
+        direction: "short",
+        entry_time: new Date().toISOString(),
+        entry_price: 5000,
+        quantity: 1,
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot add a withdrawal to A's account", async () => {
+      const { error } = await B.from("account_transactions").insert({
+        account_id: aAccountId,
+        type: "withdrawal",
+        amount: 10000,
+      });
+      expect(error).not.toBeNull();
+      const { data } = await A.from("account_balances")
+        .select("current_balance")
+        .eq("account_id", aAccountId)
+        .single();
+      expect(Number(data!.current_balance)).toBe(11291.6);
+    });
+
+    it("cannot create rows that claim to belong to A (spoofed user_id)", async () => {
+      const { error } = await B.from("trading_accounts").insert({
+        user_id: aId,
+        name: "Planted",
+        account_type: "live",
+        starting_balance: 1,
+        start_date: "2026-01-01",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("cannot hand their own account over to A", async () => {
+      const { error } = await B.from("trading_accounts")
+        .update({ user_id: aId })
+        .eq("id", bAccountId);
+      expect(error).not.toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------- logged out
+  describe("A logged-out visitor", () => {
+    it.each([
+      "trading_accounts",
+      "trades",
+      "account_transactions",
+      "profiles",
+      "account_balances",
+    ] as const)("cannot read %s", async (table) => {
+      // Untyped here: the list mixes tables and a view, which the typed client keeps separate.
+      const untyped = anon as unknown as SupabaseClient;
+      const { data, error } = await untyped.from(table).select("*").limit(1);
+      expect(data ?? []).toEqual([]);
+      expect(error).not.toBeNull();
+    });
+  });
+});

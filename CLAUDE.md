@@ -466,3 +466,13 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Email templates can't be edited until custom SMTP is configured.** Until then, confirmation/reset links use Supabase's default PKCE `?code=` flow, which only works in the **same browser** that requested the email. In Phase 7 (custom SMTP), change the templates to token_hash links (`/auth/callback?token_hash={{ .TokenHash }}&type=email&next=/app/dashboard` and `...&type=recovery`); `/auth/callback` already supports both.
 - Dev redirect allow-list uses `http://localhost:3000/**`. In production, allow only the exact production callback URL.
 - Supabase's built-in email sender is heavily rate-limited (a few emails/hour). Configure custom SMTP before launch.
+
+### Database notes (Phase 3)
+
+- **This Supabase project does NOT auto-grant table privileges.** New tables give `authenticated` no SELECT/INSERT/UPDATE (and default grants include TRUNCATE, which bypasses RLS). **Every new table/view migration must `revoke all ... from anon, authenticated` and then `grant` exactly what's needed.** RLS controls which rows; GRANTs control which operations.
+- Child tables reference accounts via composite FK `(account_id, user_id) → trading_accounts(id, user_id)`, so a row can only point at an account owned by the same user (enforced by the schema, in addition to RLS).
+- P&L (`gross_pnl`, `net_pnl`, `r_multiple`, `status`) are Postgres generated columns. Never send them from the client.
+- Balances come from the `account_balances` view (`security_invoker = true`).
+- Test migrations safely before pushing: wrap them in `begin; … rollback;` and run with `npx supabase db query --remote -f file.sql` (asks for confirmation; use `--read-only` for plain reads).
+- **Isolation test** (`tests/integration/isolation.test.ts`) runs in `npm test` using two real users from `.env.test.local` (created in the dashboard with "Auto Confirm User"). No service_role key. If CAPTCHA is enabled later, the test users' sign-in will need a bypass strategy (e.g. a separate test project).
+- `supabase/seed.sql` is for LOCAL Docker databases only (creates `demo@tradeledger.local` / `demo-password-123`). Never run it on production.

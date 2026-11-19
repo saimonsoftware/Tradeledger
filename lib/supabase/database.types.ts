@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_transactions: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          id: string
+          note: string | null
+          occurred_at: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          type: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          occurred_at?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_transactions_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "account_transactions_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "trading_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -41,9 +92,168 @@ export type Database = {
         }
         Relationships: []
       }
+      trades: {
+        Row: {
+          account_id: string
+          asset_class: string
+          created_at: string
+          direction: string
+          entry_price: number
+          entry_time: string
+          exit_price: number | null
+          exit_time: string | null
+          fees: number
+          gross_pnl: number | null
+          id: string
+          multiplier: number
+          net_pnl: number | null
+          notes: string | null
+          quantity: number
+          r_multiple: number | null
+          rating: number | null
+          status: string | null
+          stop_loss: number | null
+          strategy: string | null
+          symbol: string
+          tags: string[]
+          take_profit: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          asset_class: string
+          created_at?: string
+          direction: string
+          entry_price: number
+          entry_time: string
+          exit_price?: number | null
+          exit_time?: string | null
+          fees?: number
+          gross_pnl?: number | null
+          id?: string
+          multiplier?: number
+          net_pnl?: number | null
+          notes?: string | null
+          quantity: number
+          r_multiple?: number | null
+          rating?: number | null
+          status?: string | null
+          stop_loss?: number | null
+          strategy?: string | null
+          symbol: string
+          tags?: string[]
+          take_profit?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_id?: string
+          asset_class?: string
+          created_at?: string
+          direction?: string
+          entry_price?: number
+          entry_time?: string
+          exit_price?: number | null
+          exit_time?: string | null
+          fees?: number
+          gross_pnl?: number | null
+          id?: string
+          multiplier?: number
+          net_pnl?: number | null
+          notes?: string | null
+          quantity?: number
+          r_multiple?: number | null
+          rating?: number | null
+          status?: string | null
+          stop_loss?: number | null
+          strategy?: string | null
+          symbol?: string
+          tags?: string[]
+          take_profit?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trades_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "trades_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "trading_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      trading_accounts: {
+        Row: {
+          account_type: string
+          broker: string | null
+          created_at: string
+          currency: string
+          external_account_id: string | null
+          external_provider: string | null
+          id: string
+          is_archived: boolean
+          name: string
+          start_date: string
+          starting_balance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type: string
+          broker?: string | null
+          created_at?: string
+          currency?: string
+          external_account_id?: string | null
+          external_provider?: string | null
+          id?: string
+          is_archived?: boolean
+          name: string
+          start_date: string
+          starting_balance: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_type?: string
+          broker?: string | null
+          created_at?: string
+          currency?: string
+          external_account_id?: string | null
+          external_provider?: string | null
+          id?: string
+          is_archived?: boolean
+          name?: string
+          start_date?: string
+          starting_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      account_balances: {
+        Row: {
+          account_id: string | null
+          currency: string | null
+          current_balance: number | null
+          realized_pnl: number | null
+          starting_balance: number | null
+          total_deposits: number | null
+          total_withdrawals: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
