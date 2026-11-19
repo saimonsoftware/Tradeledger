@@ -9,12 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUp } from "@/lib/auth/actions";
 import { PASSWORD_MIN, signUpSchema, type SignUpInput } from "@/lib/validation/auth";
+import { useFieldIds } from "@/lib/use-field-ids";
 
-import { FieldError, FormMessage } from "./form-message";
+import { FieldError, FormMessage } from "@/components/common/form-message";
 import { PasswordInput } from "./password-input";
 import { PasswordStrengthMeter } from "./password-strength-meter";
 
 export function SignupForm() {
+  const f = useFieldIds();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
@@ -49,53 +51,53 @@ export function SignupForm() {
       {serverError && <FormMessage type="error">{serverError}</FormMessage>}
 
       <div className="space-y-2">
-        <Label htmlFor="displayName">
+        <Label htmlFor={f("displayName")}>
           Name <span className="font-normal text-muted-foreground">(optional)</span>
         </Label>
-        <Input id="displayName" autoComplete="name" {...register("displayName")} />
-        <FieldError id="displayName-error" message={errors.displayName?.message} />
+        <Input id={f("displayName")} autoComplete="name" {...register("displayName")} />
+        <FieldError id={f("displayName-error")} message={errors.displayName?.message} />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor={f("email")}>Email</Label>
         <Input
-          id="email"
+          id={f("email")}
           type="email"
           autoComplete="email"
           inputMode="email"
           aria-invalid={!!errors.email}
-          aria-describedby={errors.email ? "email-error" : undefined}
+          aria-describedby={errors.email ? f("email-error") : undefined}
           {...register("email")}
         />
-        <FieldError id="email-error" message={errors.email?.message} />
+        <FieldError id={f("email-error")} message={errors.email?.message} />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor={f("password")}>Password</Label>
         <PasswordInput
-          id="password"
+          id={f("password")}
           autoComplete="new-password"
           aria-invalid={!!errors.password}
-          aria-describedby="password-hint password-strength"
+          aria-describedby={`${f("password-hint")} ${f("password-strength")}`}
           {...register("password")}
         />
-        <p id="password-hint" className="text-xs text-muted-foreground">
+        <p id={f("password-hint")} className="text-xs text-muted-foreground">
           At least {PASSWORD_MIN} characters. A short phrase is easy to remember and hard to guess.
         </p>
-        <PasswordStrengthMeter id="password-strength" password={password} />
-        <FieldError id="password-error" message={errors.password?.message} />
+        <PasswordStrengthMeter id={f("password-strength")} password={password} />
+        <FieldError id={f("password-error")} message={errors.password?.message} />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="confirmPassword">Confirm password</Label>
+        <Label htmlFor={f("confirmPassword")}>Confirm password</Label>
         <PasswordInput
-          id="confirmPassword"
+          id={f("confirmPassword")}
           autoComplete="new-password"
           aria-invalid={!!errors.confirmPassword}
-          aria-describedby={errors.confirmPassword ? "confirmPassword-error" : undefined}
+          aria-describedby={errors.confirmPassword ? f("confirmPassword-error") : undefined}
           {...register("confirmPassword")}
         />
-        <FieldError id="confirmPassword-error" message={errors.confirmPassword?.message} />
+        <FieldError id={f("confirmPassword-error")} message={errors.confirmPassword?.message} />
       </div>
 
       <Button type="submit" variant="contrast" className="h-10 w-full" disabled={isSubmitting}>

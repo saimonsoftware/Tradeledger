@@ -1,6 +1,7 @@
 "use client";
 
 import { LogOut, Settings, UserRound } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,9 +31,10 @@ export function UserMenu({ email }: { email: string }) {
             {email}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled>
-            <Settings /> Settings
-            <span className="ml-auto text-xs text-muted-foreground">Soon</span>
+          <DropdownMenuItem asChild>
+            <Link href="/app/settings">
+              <Settings /> Settings
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <button type="submit" form="logout-form" className="w-full">

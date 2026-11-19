@@ -476,3 +476,15 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - Test migrations safely before pushing: wrap them in `begin; … rollback;` and run with `npx supabase db query --remote -f file.sql` (asks for confirmation; use `--read-only` for plain reads).
 - **Isolation test** (`tests/integration/isolation.test.ts`) runs in `npm test` using two real users from `.env.test.local` (created in the dashboard with "Auto Confirm User"). No service_role key. If CAPTCHA is enabled later, the test users' sign-in will need a bypass strategy (e.g. a separate test project).
 - `supabase/seed.sql` is for LOCAL Docker databases only (creates `demo@tradeledger.local` / `demo-password-123`). Never run it on production.
+
+### UI conventions (Phase 4)
+
+- **Form field ids: always use `useFieldIds()`** (`lib/use-field-ids.ts`), never fixed `id="email"`. Next keeps visited pages alive (hidden), so fixed ids get duplicated and `<label htmlFor>` points at the hidden copy.
+- **Client components that read the URL** (`usePathname`, `useSearchParams`) must sit inside `<Suspense>` (see `app-sidebar.tsx` / `top-bar.tsx`), or dynamic routes like `/app/accounts/[id]` fail Cache Components validation.
+- After a Server Action mutates data, call `refresh()` from `next/cache` (our reads are per-request, not cached).
+- Server Actions receive the RAW form values (`getValues()`), then validate with Zod themselves. Forms use `useForm<Input, unknown, Output>`.
+- Money: validate as a string (`moneyString`, ≤13 integer digits, ≤2 decimals), convert with `moneyToNumber` only after validation. Display with `formatCurrency` (en-IE: USD shows as "US$", which is intentional for multi-currency clarity).
+- `SignedAmount` shows P&L with colour + sign + arrow; zero has no icon.
+- Shared form messages live in `components/common/form-message.tsx`.
+- `TooltipProvider` wraps the app layout (required by the sidebar).
+- When running `npx shadcn add`, never overwrite `button.tsx` (custom `contrast` variant) or `input.tsx`.

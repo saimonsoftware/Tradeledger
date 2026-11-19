@@ -11,13 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { logIn } from "@/lib/auth/actions";
 import { logInSchema, type LogInInput } from "@/lib/validation/auth";
+import { useFieldIds } from "@/lib/use-field-ids";
 
-import { FieldError, FormMessage } from "./form-message";
+import { FieldError, FormMessage } from "@/components/common/form-message";
 import { PasswordInput } from "./password-input";
 
 const LINK_ERROR = "That link is invalid or has expired. Please request a new one.";
 
 export function LoginForm() {
+  const f = useFieldIds();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? undefined;
   const [serverError, setServerError] = useState<string | null>(
@@ -50,22 +52,22 @@ export function LoginForm() {
       {serverError && <FormMessage type="error">{serverError}</FormMessage>}
 
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor={f("email")}>Email</Label>
         <Input
-          id="email"
+          id={f("email")}
           type="email"
           autoComplete="email"
           inputMode="email"
           aria-invalid={!!errors.email}
-          aria-describedby={errors.email ? "email-error" : undefined}
+          aria-describedby={errors.email ? f("email-error") : undefined}
           {...register("email")}
         />
-        <FieldError id="email-error" message={errors.email?.message} />
+        <FieldError id={f("email-error")} message={errors.email?.message} />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor={f("password")}>Password</Label>
           <Link
             href="/forgot-password"
             className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -74,13 +76,13 @@ export function LoginForm() {
           </Link>
         </div>
         <PasswordInput
-          id="password"
+          id={f("password")}
           autoComplete="current-password"
           aria-invalid={!!errors.password}
-          aria-describedby={errors.password ? "password-error" : undefined}
+          aria-describedby={errors.password ? f("password-error") : undefined}
           {...register("password")}
         />
-        <FieldError id="password-error" message={errors.password?.message} />
+        <FieldError id={f("password-error")} message={errors.password?.message} />
       </div>
 
       <Button type="submit" variant="contrast" className="h-10 w-full" disabled={isSubmitting}>

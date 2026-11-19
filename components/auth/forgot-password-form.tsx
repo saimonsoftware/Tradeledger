@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPasswordReset } from "@/lib/auth/actions";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/lib/validation/auth";
+import { useFieldIds } from "@/lib/use-field-ids";
 
-import { FieldError, FormMessage } from "./form-message";
+import { FieldError, FormMessage } from "@/components/common/form-message";
 
 export function ForgotPasswordForm() {
+  const f = useFieldIds();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
   const {
     register,
@@ -34,17 +36,17 @@ export function ForgotPasswordForm() {
       {result && <FormMessage type={result.ok ? "success" : "error"}>{result.text}</FormMessage>}
 
       <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor={f("email")}>Email</Label>
         <Input
-          id="email"
+          id={f("email")}
           type="email"
           autoComplete="email"
           inputMode="email"
           aria-invalid={!!errors.email}
-          aria-describedby={errors.email ? "email-error" : undefined}
+          aria-describedby={errors.email ? f("email-error") : undefined}
           {...register("email")}
         />
-        <FieldError id="email-error" message={errors.email?.message} />
+        <FieldError id={f("email-error")} message={errors.email?.message} />
       </div>
 
       <Button type="submit" variant="contrast" className="h-10 w-full" disabled={isSubmitting}>
