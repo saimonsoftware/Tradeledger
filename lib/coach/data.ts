@@ -1,8 +1,11 @@
 import "server-only";
 
+import { formatInTimeZone } from "date-fns-tz";
+
 import { requireUser } from "@/lib/auth/dal";
+import { pipsBetween, savedTradeResult } from "@/lib/calculations/rr";
 import { lastNDays, startOfLocalDay } from "@/lib/calculations/week";
-import { computeInsightStats, type StatTrade } from "@/lib/insights/stats";
+import { computeInsightStats, sessionOf, type StatTrade } from "@/lib/insights/stats";
 import { getProfile } from "@/lib/profile/data";
 import { SYMBOL_ASSET_CLASS } from "@/lib/trades/constants";
 import { createClient } from "@/lib/supabase/server";
@@ -10,8 +13,9 @@ import { createClient } from "@/lib/supabase/server";
 export const PERIODS = { "30": 30, "90": 90, "365": 365, all: null } as const;
 export type PeriodKey = keyof typeof PERIODS;
 export const MIN_TRADES_FOR_REPORT = 5;
-const MAX_NOTES = 80;
-const MAX_NOTE_CHARS = 400;
+/** Most recent trades sent one per line, so the AI can spot sequences and outliers. */
+export const MAX_LOG_TRADES = 150;
+const MAX_NOTE_CHARS = 300;
 
 /**
  * Loads the user's CLOSED trades for the period (RLS: only ever their own),
@@ -29,7 +33,7 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
   let query = supabase
     .from("trades")
     .select(
-      "symbol, direction, strategy, tags, rating, entry_time, exit_time, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
+      "symbol, direction, strategy, tags, rating, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
     )
     .eq("status", "closed")
     .order("exit_time", { ascending: false })
@@ -40,7 +44,20 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
   const { data, error } = await query;
   if (error) throw new Error("Could not load trades");
 
-  const trades: StatTrade[] = data.map((t) => ({
+  const num = (v: string | null) => (v === null ? null : Number(v));
+  const rows = data.map((t) => {
+    const entry = String(t.entry_price);
+    const sl = t.stop_loss === null ? null : String(t.stop_loss);
+    const tp = t.take_profit === null ? null : String(t.take_profit);
+    return {
+      t,
+      pips: num(savedTradeResult(t).pips),
+      slPips: num(pipsBetween(t.symbol, entry, sl)),
+      tpPips: num(pipsBetween(t.symbol, entry, tp)),
+    };
+  });
+
+  const trades: StatTrade[] = rows.map(({ t, pips, slPips, tpPips }) => ({
     symbol: t.symbol,
     direction: t.direction,
     assetClass: SYMBOL_ASSET_CLASS[t.symbol] ?? "other",
@@ -50,38 +67,44 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
     entryTime: t.entry_time,
     exitTime: t.exit_time!,
     netPnl: Number(t.net_pnl),
-    // Trade RR, as typed by the trader (null when not recorded).
+    // Trade RR (calculated from SL/TP, or typed by the trader).
     rMultiple: t.r_multiple === null ? null : Number(t.r_multiple),
     currency: t.account?.currency ?? "EUR",
+    pips,
+    slPips,
+    tpPips,
   }));
 
   const period_ = { from: fromDate, to: lastNDays(now, timezone, 1)[0] };
   const stats = computeInsightStats(trades, timezone, period_);
 
-  // Most recent trades with notes, trimmed. The AI reads these for behavioural patterns.
-  const notes = data
-    .filter((t) => t.notes?.trim())
-    .slice(0, MAX_NOTES)
-    .map((t) => ({
-      date: t.exit_time!.slice(0, 10),
-      symbol: t.symbol,
-      direction: t.direction,
-      strategy: t.strategy,
-      tags: t.tags,
-      rating: t.rating,
-      r: t.r_multiple === null ? null : Number(t.r_multiple),
-      result: Number(t.net_pnl) > 0 ? "win" : Number(t.net_pnl) < 0 ? "loss" : "breakeven",
-      note: t.notes!.trim().slice(0, MAX_NOTE_CHARS),
-    }));
+  // The most recent trades, one compact row each (newest first), including the
+  // trader's notes. The AI uses these to spot sequences, outliers and behaviour;
+  // every NUMBER it quotes still comes from the stats above.
+  const tradeLog = rows.slice(0, MAX_LOG_TRADES).map(({ t, pips, slPips, tpPips }) => ({
+    when: formatInTimeZone(t.entry_time, timezone, "yyyy-MM-dd EEE HH:mm"),
+    session: sessionOf(t.entry_time),
+    symbol: t.symbol,
+    dir: t.direction,
+    strategy: t.strategy,
+    result: Number(t.net_pnl) > 0 ? "win" : Number(t.net_pnl) < 0 ? "loss" : "breakeven",
+    r: t.r_multiple === null ? null : Number(t.r_multiple),
+    pips,
+    slPips,
+    tpPips,
+    tags: t.tags.length ? t.tags : undefined,
+    rating: t.rating ?? undefined,
+    note: t.notes?.trim() ? t.notes.trim().slice(0, MAX_NOTE_CHARS) : undefined,
+  }));
 
-  return { stats, notes, tradeCount: trades.length, timezone, from: fromDate };
+  return { stats, tradeLog, tradeCount: trades.length, timezone, from: fromDate };
 }
 
 export type CoachInput = Awaited<ReturnType<typeof buildCoachInput>>;
 
-/** The data block sent to the model: stats + notes, clearly delimited. */
-export function renderCoachContext(input: { stats: unknown; notes: unknown[] }) {
-  return `<stats>\n${JSON.stringify(input.stats)}\n</stats>\n\n<trade_notes>\n${JSON.stringify(input.notes)}\n</trade_notes>`;
+/** The data block sent to the model: stats + trade log, clearly delimited. */
+export function renderCoachContext(input: { stats: unknown; tradeLog: unknown[] }) {
+  return `<stats>\n${JSON.stringify(input.stats)}\n</stats>\n\n<trade_log>\n${JSON.stringify(input.tradeLog)}\n</trade_log>`;
 }
 
 export async function getCoachStatus() {

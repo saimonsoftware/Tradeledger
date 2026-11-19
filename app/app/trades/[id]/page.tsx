@@ -10,7 +10,7 @@ import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeScreenshots } from "@/components/trades/trade-screenshots";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { movePips, PIP_LABEL, pipsBetween } from "@/lib/calculations/rr";
+import { PIP_LABEL, pipsBetween, savedTradeResult } from "@/lib/calculations/rr";
 import { formatPrice, formatR } from "@/lib/format/number";
 import { getProfile } from "@/lib/profile/data";
 import type { TradeSymbol } from "@/lib/trades/constants";
@@ -51,6 +51,7 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
       </>
     );
   const sl = trade.stop_loss === null ? null : String(trade.stop_loss);
+  const resultPips = savedTradeResult(trade).pips;
   const tp = trade.take_profit === null ? null : String(trade.take_profit);
   const net = trade.net_pnl === null ? null : Number(trade.net_pnl);
   const result = net === null ? "Open" : net > 0 ? "Win" : net < 0 ? "Loss" : "Breakeven";
@@ -60,13 +61,7 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
     ["Entry time", fmtTime(trade.entry_time)],
     ["Entry price", formatPrice(trade.entry_price)],
     ["Stop loss (SL)", withPips(trade.stop_loss, pipsBetween(trade.symbol, entry, sl))],
-    [
-      "Take profit (TP, exit)",
-      withPips(
-        trade.take_profit,
-        movePips(trade.symbol, trade.direction as "long" | "short", entry, tp),
-      ),
-    ],
+    ["Take profit (TP)", withPips(trade.take_profit, pipsBetween(trade.symbol, entry, tp))],
     ["Strategy", trade.strategy ?? "—"],
   ];
 
@@ -133,8 +128,18 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
           <p className="mt-1 text-lg font-medium tabular-nums">{formatPrice(trade.entry_price)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">TP (exit)</p>
-          <p className="mt-1 text-lg font-medium tabular-nums">{formatPrice(trade.take_profit)}</p>
+          <p className="text-xs text-muted-foreground">Result</p>
+          <p
+            className={cn(
+              "mt-1 text-lg font-medium tabular-nums",
+              Number(resultPips) > 0 && "text-profit",
+              Number(resultPips) < 0 && "text-loss",
+            )}
+          >
+            {resultPips === null
+              ? "—"
+              : `${resultPips.startsWith("-") ? `\u2212${resultPips.slice(1)}` : resultPips === "0" ? "0" : `+${resultPips}`}${unit}`}
+          </p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Execution</p>

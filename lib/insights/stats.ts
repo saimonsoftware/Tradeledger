@@ -20,6 +20,20 @@ export type StatTrade = {
   netPnl: number;
   rMultiple: number | null;
   currency: string;
+  /** Result in pips (EURUSD) / points (NQ), signed: +TP distance on a win, −SL distance on a loss. */
+  pips?: number | null;
+  /** SL and TP distances from the entry, in pips/points (null if not set). */
+  slPips?: number | null;
+  tpPips?: number | null;
+};
+
+export type PipStats = {
+  trades: number;
+  netPips: number;
+  avgWinPips: number | null;
+  avgLossPips: number | null;
+  avgSlPips: number | null;
+  avgTpPips: number | null;
 };
 
 /** Groups with fewer trades than this are flagged so they're not over-interpreted. */
@@ -36,6 +50,10 @@ export type GroupStats = {
   avgR: number | null;
   /** How many trades contributed to avgR. */
   rCount: number;
+  /** Sum of R over those trades: the best single measure of a setup's total edge. */
+  totalR: number | null;
+  /** Net result in pips/points per symbol (units differ, so never add symbols together). */
+  netPipsBySymbol: Record<string, number>;
   /** Net P&L per currency, e.g. { USD: 433.9 }. */
   netByCurrency: Record<string, number>;
   smallSample: boolean;
@@ -51,6 +69,13 @@ export type InsightStats = {
     profitFactorByCurrency: Record<string, number | null>;
     longestWinStreak: number;
     longestLossStreak: number;
+    /**
+     * Win rate needed to break even given the average win and loss in R:
+     * |avgLossR| / (avgWinR + |avgLossR|). Compare it with winRate.
+     */
+    breakevenWinRate: number | null;
+    /** Pips/points per symbol: sizes of stops, targets, wins and losses. */
+    pipsBySymbol: Record<string, PipStats>;
   };
   byStrategy: GroupStats[];
   byTag: GroupStats[];
@@ -97,11 +122,52 @@ export function groupStats(key: string, trades: StatTrade[]): GroupStats {
       ? round(withR.reduce((s, t) => s + (t.rMultiple as number), 0) / withR.length)
       : null,
     rCount: withR.length,
+    totalR: withR.length ? round(withR.reduce((sum, t) => sum + (t.rMultiple as number), 0)) : null,
+    netPipsBySymbol: pipsTotals(trades),
     netByCurrency: Object.fromEntries(
       Object.entries(centsByCurrency).map(([c, v]) => [c, v / 100]),
     ),
     smallSample: trades.length < MIN_SAMPLE,
   };
+}
+
+function pipsTotals(trades: StatTrade[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of trades) {
+    if (t.pips === null || t.pips === undefined) continue;
+    out[t.symbol] = round((out[t.symbol] ?? 0) + t.pips, 2);
+  }
+  return out;
+}
+
+function pipStats(trades: StatTrade[]): Record<string, PipStats> {
+  const avg = (xs: number[]) =>
+    xs.length ? round(xs.reduce((s, x) => s + x, 0) / xs.length, 1) : null;
+  const out: Record<string, PipStats> = {};
+  for (const symbol of new Set(trades.map((t) => t.symbol))) {
+    const ts = trades.filter((t) => t.symbol === symbol);
+    const withPips = ts.filter((t) => t.pips !== null && t.pips !== undefined);
+    if (!withPips.length && !ts.some((t) => t.slPips != null)) continue;
+    out[symbol] = {
+      trades: ts.length,
+      netPips: round(
+        withPips.reduce((s, t) => s + (t.pips as number), 0),
+        2,
+      ),
+      avgWinPips: avg(withPips.filter((t) => t.netPnl > 0).map((t) => t.pips as number)),
+      avgLossPips: avg(withPips.filter((t) => t.netPnl < 0).map((t) => t.pips as number)),
+      avgSlPips: avg(ts.filter((t) => t.slPips != null).map((t) => t.slPips as number)),
+      avgTpPips: avg(ts.filter((t) => t.tpPips != null).map((t) => t.tpPips as number)),
+    };
+  }
+  return out;
+}
+
+/** |avgLossR| / (avgWinR + |avgLossR|): the win rate at which the trader breaks even. */
+function breakevenWinRate(avgWinR: number | null, avgLossR: number | null): number | null {
+  if (avgWinR === null || avgLossR === null) return null;
+  const loss = Math.abs(avgLossR);
+  return avgWinR + loss > 0 ? round(loss / (avgWinR + loss), 4) : null;
 }
 
 function groupBy(
@@ -220,6 +286,8 @@ export function computeInsightStats(
       ...base,
       avgWinR: avg(winsR),
       avgLossR: avg(lossesR),
+      breakevenWinRate: breakevenWinRate(avg(winsR), avg(lossesR)),
+      pipsBySymbol: pipStats(sorted),
       profitFactorByCurrency,
       ...streaks(sorted),
     },
@@ -244,7 +312,10 @@ export function computeInsightStats(
     afterLoss: afterLossTrades.length ? groupStats("after a loss", afterLossTrades) : null,
     afterWin: afterWinTrades.length ? groupStats("after a win", afterWinTrades) : null,
     definitions: {
-      avgR: "Average of the Trade RR the trader entered (result in multiples of the amount risked). rCount = trades with an RR.",
+      avgR: "Average R per trade = expectancy in R (result in multiples of the amount risked). rCount = trades with an RR; totalR = their sum (net edge). A loss at the SL is -1R; a win at the TP is TP distance / SL distance.",
+      breakevenWinRate:
+        "overall.breakevenWinRate: the win rate needed to break even with the current average win/loss R. If winRate is above it, the trader has a positive edge.",
+      pips: "Pips for EURUSD, points for NQ. A win exits at the TP (+TP distance), a loss at the SL (-SL distance). Never add pips of different symbols together.",
       sessions: SESSION_NOTE,
       combinations:
         'byStrategySymbol / byStrategyDirection / byStrategySession keys are "strategy · symbol/direction/session".',

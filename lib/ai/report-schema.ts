@@ -11,6 +11,9 @@ const Insight = z.object({
 
 export const coachReportSchema = z.object({
   headline: z.string().describe("One or two sentences summarising the period"),
+  best_setup: Insight.nullable().describe(
+    "The trader's strongest setup: the strategy (and the symbol/direction/session where it works best) with the highest totalR and avgR on a reasonable sample. null if no setup has enough trades to judge",
+  ),
   whats_working: z.array(Insight).describe("Strengths to keep doing (1-4 items)"),
   whats_costing_you: z.array(Insight).describe("Leaks and weaknesses (1-4 items)"),
   patterns: z

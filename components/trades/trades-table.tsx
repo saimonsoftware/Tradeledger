@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 
 import { SignedAmount } from "@/components/common/signed-amount";
-import { movePips, PIP_LABEL, pipsBetween } from "@/lib/calculations/rr";
+import { PIP_LABEL, pipsBetween } from "@/lib/calculations/rr";
 import { formatPrice, formatR } from "@/lib/format/number";
 import type { TradeSymbol } from "@/lib/trades/constants";
 import type { TradeListItem } from "@/lib/trades/data";
@@ -51,12 +51,7 @@ function SortHeader({
 function SlTp({ trade: t }: { trade: TradeListItem }) {
   const entry = String(t.entry_price);
   const sl = t.stop_loss === null ? null : pipsBetween(t.symbol, entry, String(t.stop_loss));
-  const tpRaw =
-    t.take_profit === null
-      ? null
-      : movePips(t.symbol, t.direction as "long" | "short", entry, String(t.take_profit));
-  const tp =
-    tpRaw === null ? null : tpRaw.startsWith("-") ? `\u2212${tpRaw.slice(1)}` : `+${tpRaw}`;
+  const tp = t.take_profit === null ? null : pipsBetween(t.symbol, entry, String(t.take_profit));
   if (sl === null && tp === null) {
     return t.status === "open" ? (
       <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">

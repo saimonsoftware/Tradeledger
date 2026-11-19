@@ -98,12 +98,13 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await sheet.getByLabel("Entry price").fill("21480");
   await sheet.getByLabel(/SL price/).fill("21460");
   await sheet.getByLabel(/TP price/).fill("21520");
-  await expect(sheet.getByText("SL: 20 points")).toBeVisible();
-  await expect(sheet.getByText("TP: +40 points · +2.00R")).toBeVisible();
+  await expect(sheet.getByText(/SL: 20 points/)).toBeVisible();
+  await expect(sheet.getByText(/TP: 40 points/)).toBeVisible();
   await sheet.getByRole("radio", { name: /Profit/ }).click();
   await sheet.getByLabel(/^Amount/).fill("123");
-  // TP is the exit: the RR fills in as 40 ÷ 20 = 2.
-  await expect(sheet.getByLabel(/Trade RR/)).toHaveValue("2.00");
+  // A win exits at the TP: RR = 40 ÷ 20 = +2R, +40 points.
+  await expect(sheet.locator("output")).toContainText("+2.00R");
+  await expect(sheet.locator("output")).toContainText("+40 points");
   await expect(sheet.getByText("+US$123.00").filter({ visible: true }).first()).toBeVisible();
   // Attach a screenshot before saving (uploaded right after the trade is created).
   await sheet.locator('input[type="file"]').setInputFiles({
@@ -123,6 +124,7 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(page).toHaveURL(/\/app\/trades\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("button", { name: "View screenshot 1" })).toBeVisible();
   await expect(page.getByLabel("Results")).toContainText("+2.00R");
+  await expect(page.getByLabel("Results")).toContainText("+40 points");
   await expect(page.getByText("21,460 · 20 points")).toBeVisible();
   await expect(page.getByText("21,520 · 40 points")).toBeVisible();
 

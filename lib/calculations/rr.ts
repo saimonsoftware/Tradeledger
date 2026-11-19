@@ -1,5 +1,5 @@
 // SL / TP distances (pips for EURUSD, points for NQ) and the Trade RR.
-// The TP price is WHERE THE TRADER GOT OUT (their exit), on either side of the entry.
+// The trader gets out at the TP on a win and at the SL on a loss.
 // Pure and exact: prices are decimal strings, done in integer maths (BigInt at
 // 8 decimal places, like the numeric(18,8) price columns), so no float rounding.
 // Used by the form (live) AND the server (stored values).
@@ -41,87 +41,86 @@ export function pipsBetween(symbol: string, a: string, b: string | null): string
   return s.replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
 }
 
-/**
- * Pips/points moved from entry to the TP (exit), signed: + in the trade's favour.
- * E.g. short 1.0852 → 1.0827 = "25"; long 21480 → 21470 = "-10".
- */
-export function movePips(
-  symbol: string,
-  direction: "long" | "short",
-  entryPrice: string,
-  exitPrice: string | null,
-): string | null {
-  const abs = pipsBetween(symbol, entryPrice, exitPrice);
-  if (abs === null) return null;
-  const entry = toUnits(entryPrice)!;
-  const exit = toUnits(exitPrice)!;
-  const favour = direction === "long" ? exit > entry : exit < entry;
-  return favour || abs === "0" ? abs : `-${abs}`;
-}
-
 export type LevelCheck = "ok" | "missing" | "wrong-side" | "at-entry";
 
-/** Is the stop on the losing side of the entry? Long: below. Short: above. */
-export function checkStop(
+/**
+ * Is the level on the correct side of the entry?
+ * SL (exit on a loss): long below, short above. TP (exit on a win): long above, short below.
+ */
+export function checkLevel(
+  kind: "sl" | "tp",
   direction: "long" | "short",
   entryPrice: string,
-  stopLoss: string | null,
+  level: string | null,
 ): LevelCheck {
   const entry = toUnits(entryPrice);
-  const price = toUnits(stopLoss);
+  const price = toUnits(level);
   if (entry === null || price === null) return "missing";
   if (price === entry) return "at-entry";
-  return price < entry === (direction === "long") ? "ok" : "wrong-side";
+  const above = price > entry;
+  const shouldBeAbove = (kind === "tp") === (direction === "long");
+  return above === shouldBeAbove ? "ok" : "wrong-side";
 }
 
 /**
- * Trade RR from prices: move from entry to the TP (exit) ÷ SL distance, signed,
- * rounded to 2 decimals (half away from zero). E.g. short 1.0852 → 1.0827 with
- * SL 1.0862 = "2.50"; exit 1.0857 = "-0.50". Null unless entry, SL and TP are valid.
+ * The trade's result from its prices:
+ *  - Profit → out at the TP: RR = +TP distance ÷ SL distance, pips = +TP pips
+ *  - Loss   → out at the SL: RR = −1, pips = −SL pips
+ *  - P&L of 0 → breakeven: 0R, 0 pips
+ * rr is a signed "x.yy" string; pips is signed ("25", "-10"). Null when the
+ * needed prices are missing or on the wrong side (the trader can type the RR).
  */
-export function tradeRrFromPrices(
-  direction: "long" | "short",
-  entryPrice: string,
-  stopLoss: string | null,
-  exitPrice: string | null,
-): string | null {
-  if (checkStop(direction, entryPrice, stopLoss) !== "ok") return null;
-  const entry = toUnits(entryPrice)!;
-  const sl = toUnits(stopLoss)!;
-  const exit = toUnits(exitPrice);
-  if (exit === null || exit <= ZERO) return null;
-  const risk = entry > sl ? entry - sl : sl - entry;
-  const move = direction === "long" ? exit - entry : entry - exit;
-  const r = ratio2(move < ZERO ? -move : move, risk);
-  return move < ZERO && r !== "0.00" ? `-${r}` : r;
-}
-
-/**
- * The Trade RR to fill in (UNSIGNED: the Profit/Loss choice gives the sign).
- *  - TP (exit) given → |move ÷ risk|
- *  - Loss with no TP → the SL was hit → 1
- *  - P&L of 0 → 0
- * Null when it can't be worked out (the trader can type it).
- */
-export function suggestedRr(input: {
+export function tradeResult(input: {
+  symbol: string;
   direction: "long" | "short";
   entryPrice: string;
   stopLoss: string | null;
   takeProfit: string | null;
   pnlSide: "profit" | "loss";
   pnlAmount: string | null;
-}): string | null {
-  const { direction, entryPrice, stopLoss, takeProfit, pnlSide, pnlAmount } = input;
+}): { rr: string | null; pips: string | null } {
+  const { symbol, direction, entryPrice, stopLoss, takeProfit, pnlSide, pnlAmount } = input;
+  const none = { rr: null, pips: null };
   const amount = Number((pnlAmount ?? "").replace(/,/g, ""));
-  if (!pnlAmount?.trim() || !Number.isFinite(amount)) return null;
-  if (amount === 0) return "0";
-  if (takeProfit?.trim()) {
-    const r = tradeRrFromPrices(direction, entryPrice, stopLoss, takeProfit);
-    if (r === null || r === "0.00") return null;
-    return r.replace(/^-/, "");
-  }
+  if (!pnlAmount?.trim() || !Number.isFinite(amount)) return none;
+  if (amount === 0) return { rr: "0.00", pips: "0" };
+
+  const slOk = checkLevel("sl", direction, entryPrice, stopLoss) === "ok";
   if (pnlSide === "loss") {
-    return checkStop(direction, entryPrice, stopLoss) === "ok" ? "1.00" : null;
+    if (!slOk) return none;
+    const pips = pipsBetween(symbol, entryPrice, stopLoss);
+    return { rr: "-1.00", pips: pips === null ? null : `-${pips}` };
   }
-  return null;
+  const tpOk = checkLevel("tp", direction, entryPrice, takeProfit) === "ok";
+  const pips = tpOk ? pipsBetween(symbol, entryPrice, takeProfit) : null;
+  if (!slOk || !tpOk) return { rr: null, pips };
+  const entry = toUnits(entryPrice)!;
+  const sl = toUnits(stopLoss)!;
+  const tp = toUnits(takeProfit)!;
+  const risk = entry > sl ? entry - sl : sl - entry;
+  const reward = entry > tp ? entry - tp : tp - entry;
+  return { rr: ratio2(reward, risk), pips };
+}
+
+/** Same as tradeResult, for a SAVED trade (numbers from the database). */
+export function savedTradeResult(t: {
+  symbol: string;
+  direction: string;
+  entry_price: number | string;
+  stop_loss: number | string | null;
+  take_profit: number | string | null;
+  net_pnl: number | string | null;
+}) {
+  const str = (v: number | string | null) => (v === null ? null : String(v));
+  if (t.net_pnl === null) return { rr: null, pips: null };
+  const pnl = Number(t.net_pnl);
+  return tradeResult({
+    symbol: t.symbol,
+    direction: t.direction === "short" ? "short" : "long",
+    entryPrice: String(t.entry_price),
+    stopLoss: str(t.stop_loss),
+    takeProfit: str(t.take_profit),
+    pnlSide: pnl < 0 ? "loss" : "profit",
+    pnlAmount: String(Math.abs(pnl)),
+  });
 }

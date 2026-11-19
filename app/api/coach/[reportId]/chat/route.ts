@@ -89,7 +89,7 @@ export async function POST(
             {
               type: "text",
               // Stable for the whole conversation, so it's cached after the first message.
-              text: `<report>\n${JSON.stringify(report.report)}\n</report>\n\n${renderCoachContext({ stats: report.stats, notes: [] })}`,
+              text: `<report>\n${JSON.stringify(report.report)}\n</report>\n\n${renderCoachContext({ stats: report.stats, tradeLog: [] })}`,
               cache_control: { type: "ephemeral" },
             },
           ],

@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  checkStop,
-  movePips,
-  pipsBetween,
-  suggestedRr,
-  tradeRrFromPrices,
-} from "@/lib/calculations/rr";
+import { checkLevel, pipsBetween, savedTradeResult, tradeResult } from "@/lib/calculations/rr";
 
 describe("pipsBetween (EURUSD pips, NQ points)", () => {
   it.each([
@@ -26,70 +20,98 @@ describe("pipsBetween (EURUSD pips, NQ points)", () => {
   });
 });
 
-describe("movePips (signed: + in the trade's favour)", () => {
-  it.each([
-    ["EURUSD", "short", "1.0852", "1.0827", "25"],
-    ["EURUSD", "short", "1.0852", "1.0857", "-5"],
-    ["NQ", "long", "21480", "21520", "40"],
-    ["NQ", "long", "21480", "21470.5", "-9.5"],
-    ["NQ", "long", "21480", "21480", "0"],
-  ] as const)("%s %s %s → %s = %s", (sym, dir, entry, exit, expected) => {
-    expect(movePips(sym, dir, entry, exit)).toBe(expected);
+describe("checkLevel", () => {
+  it("SL on the losing side, TP on the winning side", () => {
+    expect(checkLevel("sl", "long", "100", "95")).toBe("ok");
+    expect(checkLevel("sl", "long", "100", "105")).toBe("wrong-side");
+    expect(checkLevel("tp", "long", "100", "110")).toBe("ok");
+    expect(checkLevel("tp", "long", "100", "90")).toBe("wrong-side");
+    expect(checkLevel("sl", "short", "100", "105")).toBe("ok");
+    expect(checkLevel("tp", "short", "100", "90")).toBe("ok");
+    expect(checkLevel("tp", "short", "100", "100")).toBe("at-entry");
+    expect(checkLevel("sl", "long", "100", null)).toBe("missing");
   });
 });
 
-describe("checkStop", () => {
-  it("long: SL below the entry; short: above", () => {
-    expect(checkStop("long", "100", "95")).toBe("ok");
-    expect(checkStop("long", "100", "105")).toBe("wrong-side");
-    expect(checkStop("short", "100", "105")).toBe("ok");
-    expect(checkStop("short", "100", "100")).toBe("at-entry");
-    expect(checkStop("long", "100", null)).toBe("missing");
-  });
-});
-
-describe("tradeRrFromPrices (TP = exit, exact decimal maths)", () => {
-  it.each([
-    ["long", "21480", "21460", "21530", "2.50"],
-    ["short", "1.0852", "1.0862", "1.0827", "2.50"],
-    ["short", "1.0852", "1.0862", "1.0857", "-0.50"],
-    ["long", "21480", "21460", "21460", "-1.00"],
-    ["long", "100", "97", "101", "0.33"],
-    ["long", "100", "97", "102", "0.67"],
-    ["long", "100", "92", "99", "-0.13"],
-    // Floats would give 2.9999…; exact maths gives 3.
-    ["long", "1.0852", "1.0851", "1.0855", "3.00"],
-  ] as const)("%s entry %s SL %s TP %s = %sR", (dir, entry, sl, tp, expected) => {
-    expect(tradeRrFromPrices(dir, entry, sl, tp)).toBe(expected);
-  });
-
-  it("is null without a valid SL and TP", () => {
-    expect(tradeRrFromPrices("long", "100", null, "110")).toBeNull();
-    expect(tradeRrFromPrices("long", "100", "105", "110")).toBeNull();
-    expect(tradeRrFromPrices("long", "100", "95", null)).toBeNull();
-  });
-});
-
-describe("suggestedRr (unsigned; Profit/Loss gives the sign)", () => {
-  const base = {
+describe("tradeResult (win = out at TP, loss = out at SL)", () => {
+  const nq = {
+    symbol: "NQ",
     direction: "long" as const,
     entryPrice: "21480",
-    stopLoss: "21460",
-    takeProfit: "21530",
+    stopLoss: "21460", // 20 points
+    takeProfit: "21530", // 50 points
     pnlSide: "profit" as const,
     pnlAmount: "500",
   };
 
-  it("uses the TP (exit) price when given", () => {
-    expect(suggestedRr(base)).toBe("2.50");
-    expect(suggestedRr({ ...base, takeProfit: "21470", pnlSide: "loss" })).toBe("0.50");
+  it("win: RR = TP distance ÷ SL distance, pips = +TP", () => {
+    expect(tradeResult(nq)).toEqual({ rr: "2.50", pips: "50" });
   });
 
-  it("loss with no TP = SL hit; breakeven = 0; otherwise unknown", () => {
-    expect(suggestedRr({ ...base, takeProfit: null, pnlSide: "loss" })).toBe("1.00");
-    expect(suggestedRr({ ...base, pnlAmount: "0" })).toBe("0");
-    expect(suggestedRr({ ...base, takeProfit: null })).toBeNull();
-    expect(suggestedRr({ ...base, pnlAmount: "" })).toBeNull();
-    expect(suggestedRr({ ...base, stopLoss: null, takeProfit: null, pnlSide: "loss" })).toBeNull();
+  it("loss: −1R, pips = −SL", () => {
+    expect(tradeResult({ ...nq, pnlSide: "loss" })).toEqual({ rr: "-1.00", pips: "-20" });
+    // The TP isn't needed for a loss.
+    expect(tradeResult({ ...nq, pnlSide: "loss", takeProfit: null })).toEqual({
+      rr: "-1.00",
+      pips: "-20",
+    });
+  });
+
+  it("EURUSD short in pips", () => {
+    expect(
+      tradeResult({
+        ...nq,
+        symbol: "EURUSD",
+        direction: "short",
+        entryPrice: "1.0852",
+        stopLoss: "1.0862",
+        takeProfit: "1.0827",
+      }),
+    ).toEqual({ rr: "2.50", pips: "25" });
+  });
+
+  it("breakeven = 0R, 0 pips; open = nothing", () => {
+    expect(tradeResult({ ...nq, pnlAmount: "0" })).toEqual({ rr: "0.00", pips: "0" });
+    expect(tradeResult({ ...nq, pnlAmount: "" })).toEqual({ rr: null, pips: null });
+  });
+
+  it("needs valid levels (the trader can type the RR otherwise)", () => {
+    expect(tradeResult({ ...nq, takeProfit: null }).rr).toBeNull();
+    expect(tradeResult({ ...nq, stopLoss: null })).toEqual({ rr: null, pips: "50" });
+    expect(tradeResult({ ...nq, stopLoss: "21500" }).rr).toBeNull(); // SL on the wrong side
+  });
+
+  it("rounds exactly (no floating-point drift)", () => {
+    expect(tradeResult({ ...nq, entryPrice: "100", stopLoss: "97", takeProfit: "101" }).rr).toBe(
+      "0.33",
+    );
+    expect(tradeResult({ ...nq, entryPrice: "100", stopLoss: "97", takeProfit: "102" }).rr).toBe(
+      "0.67",
+    );
+    // (1.0855 − 1.0852) ÷ (1.0852 − 1.0851): floats give 2.9999…, exact maths gives 3.
+    expect(
+      tradeResult({
+        ...nq,
+        symbol: "EURUSD",
+        entryPrice: "1.0852",
+        stopLoss: "1.0851",
+        takeProfit: "1.0855",
+      }),
+    ).toEqual({ rr: "3.00", pips: "3" });
+  });
+});
+
+describe("savedTradeResult (from database rows)", () => {
+  it("uses the sign of the saved P&L", () => {
+    const row = {
+      symbol: "NQ",
+      direction: "long",
+      entry_price: 21480,
+      stop_loss: 21460,
+      take_profit: 21530,
+    };
+    expect(savedTradeResult({ ...row, net_pnl: 500 })).toEqual({ rr: "2.50", pips: "50" });
+    expect(savedTradeResult({ ...row, net_pnl: -200 })).toEqual({ rr: "-1.00", pips: "-20" });
+    expect(savedTradeResult({ ...row, net_pnl: null })).toEqual({ rr: null, pips: null });
   });
 });

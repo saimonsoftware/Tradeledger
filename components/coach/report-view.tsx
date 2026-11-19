@@ -1,4 +1,11 @@
-import { CheckCircle2, ListChecks, Repeat, TriangleAlert, type LucideIcon } from "lucide-react";
+import {
+  CheckCircle2,
+  ListChecks,
+  Repeat,
+  TriangleAlert,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { CoachReport } from "@/lib/ai/report-schema";
 
@@ -52,6 +59,10 @@ export function ReportView({ report }: { report: CoachReport }) {
       <p className="rounded-2xl surface card-glow p-5 text-lg leading-relaxed font-medium sm:p-6">
         {report.headline}
       </p>
+      {/* Older reports don't have this section. */}
+      {report.best_setup && (
+        <Section title="Your best setup" icon={Trophy} tone="profit" items={[report.best_setup]} />
+      )}
       <div className="grid gap-4 lg:grid-cols-2">
         <Section
           title="What's working"

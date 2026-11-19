@@ -112,7 +112,8 @@ export const assistantTools: Anthropic.Beta.BetaTool[] = [
   },
 ];
 
-const MAX_NOTES_IN_TOOL = 30;
+/** Trade-log rows returned to the chat (kept smaller than a report, to keep chats fast). */
+const MAX_LOG_IN_TOOL = 100;
 
 /** Runs a validated tool call. Returns JSON text for the tool_result. */
 export async function runTool<N extends ToolName>(
@@ -129,7 +130,8 @@ export async function runTool<N extends ToolName>(
         account_id: i.account_id ?? null,
         closed_trades: data.tradeCount,
         stats: data.stats,
-        recent_trade_notes: data.notes.slice(0, MAX_NOTES_IN_TOOL),
+        // Newest first, one row per trade (incl. notes). Numbers to quote come from stats.
+        trade_log: data.tradeLog.slice(0, MAX_LOG_IN_TOOL),
       });
     }
     case "list_accounts": {

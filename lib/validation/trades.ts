@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { checkStop, suggestedRr, tradeRrFromPrices } from "@/lib/calculations/rr";
+import { checkLevel, tradeResult } from "@/lib/calculations/rr";
 import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS } from "@/lib/trades/constants";
 
 // Prices: up to 10 integer digits and 8 decimals (numeric(18,8)).
@@ -90,7 +90,7 @@ export const tradeSchema = z
         ]),
       ),
     stopLoss: optionalPositiveDecimal("SL price"),
-    // The TP price is where the trader got out (their exit).
+    // The trader gets out at the TP on a win and at the SL on a loss.
     takeProfit: optionalPositiveDecimal("TP price"),
     strategy: z
       .string()
@@ -129,37 +129,32 @@ export const tradeSchema = z
       .pipe(z.union([z.null(), z.number().int().min(1).max(5)])),
   })
   .superRefine((t, ctx) => {
-    // The stop must be on the losing side of the entry. (The TP is where the trader
-    // got out, so it can be on either side.)
-    const stop = checkStop(t.direction, t.entryPrice, t.stopLoss);
-    if (stop === "at-entry") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["stopLoss"],
-        message: "SL can't equal the entry price",
-      });
-    } else if (stop === "wrong-side") {
-      ctx.addIssue({
-        code: "custom",
-        path: ["stopLoss"],
-        message: `For a ${t.direction}, the SL must be ${t.direction === "long" ? "below" : "above"} the entry price`,
-      });
-    }
-
-    // The TP (exit) price must agree with the Profit/Loss choice.
-    const fromPrices = tradeRrFromPrices(t.direction, t.entryPrice, t.stopLoss, t.takeProfit);
-    if (fromPrices !== null && t.pnlAmount !== null && Number(t.pnlAmount) !== 0) {
-      const r = Number(fromPrices);
-      const chosen = t.pnlSide === "loss" ? -1 : 1;
-      if (r !== 0 && Math.sign(r) !== chosen) {
+    // SL on the losing side of the entry, TP on the winning side.
+    const levels = [
+      ["sl", "stopLoss", t.stopLoss],
+      ["tp", "takeProfit", t.takeProfit],
+    ] as const;
+    for (const [kind, path, price] of levels) {
+      const check = checkLevel(kind, t.direction, t.entryPrice, price);
+      const name = kind === "sl" ? "SL" : "TP";
+      const side = (kind === "tp") === (t.direction === "long") ? "above" : "below";
+      if (check === "at-entry") {
         ctx.addIssue({
           code: "custom",
-          path: ["pnlSide"],
-          message: `Your TP price shows a ${r > 0 ? "win" : "loss"} (${r > 0 ? "+" : ""}${fromPrices}R) but you chose ${t.pnlSide === "loss" ? "Loss" : "Profit"}.`,
+          path: [path],
+          message: `${name} can't equal the entry price`,
+        });
+      } else if (check === "wrong-side") {
+        ctx.addIssue({
+          code: "custom",
+          path: [path],
+          message: `For a ${t.direction}, the ${name} must be ${side} the entry price`,
         });
       }
     }
 
+    // When the prices give the RR, it's calculated (a typed RR is ignored).
+    if (resultOf(t).rr !== null) return;
     if (t.rr === null) return;
     if (t.pnlAmount === null) {
       ctx.addIssue({ code: "custom", path: ["rr"], message: "Add the profit or loss first" });
@@ -169,27 +164,51 @@ export const tradeSchema = z
       ctx.addIssue({ code: "custom", path: ["rr"], message: "Only a breakeven trade is 0R" });
     }
   })
-  .transform(({ pnlAmount, pnlSide, rr, ...rest }) => {
-    // The RR the trader typed (or that the form filled in); if empty, the server
-    // works it out the same way: from the TP (exit) price, or −1R for a loss at the SL.
-    const rrValue =
-      rr ??
-      suggestedRr({
-        direction: rest.direction,
-        entryPrice: rest.entryPrice,
-        stopLoss: rest.stopLoss,
-        takeProfit: rest.takeProfit,
-        pnlSide,
-        pnlAmount,
-      });
+  .transform((t) => {
+    const { pnlAmount, pnlSide, rr, ...rest } = t;
+    const calculated = resultOf(t).rr;
+    const netPnl = pnlAmount === null ? null : signedMoney(pnlAmount, pnlSide);
     return {
       ...rest,
       /** Signed P&L as an exact decimal string ("-125.50"), or null while open. */
-      netPnl: pnlAmount === null ? null : signedMoney(pnlAmount, pnlSide),
-      /** Signed result in R, same sign as the P&L. Null if unknown or the trade is open. */
-      rMultiple: pnlAmount === null || rrValue === null ? null : signedMoney(rrValue, pnlSide),
+      netPnl,
+      /**
+       * Signed result in R: calculated from the prices (TP on a win, SL on a loss)
+       * when possible, otherwise the RR the trader typed. Null while open.
+       */
+      rMultiple:
+        netPnl === null
+          ? null
+          : calculated !== null
+            ? calculated === "0.00"
+              ? "0"
+              : calculated
+            : rr === null
+              ? null
+              : signedMoney(rr, pnlSide),
     };
   });
+
+/** Result from the (already validated) prices; see lib/calculations/rr.ts. */
+function resultOf(t: {
+  symbol: string;
+  direction: "long" | "short";
+  entryPrice: string;
+  stopLoss: string | null;
+  takeProfit: string | null;
+  pnlSide: "profit" | "loss";
+  pnlAmount: string | null;
+}) {
+  return tradeResult({
+    symbol: t.symbol,
+    direction: t.direction,
+    entryPrice: t.entryPrice,
+    stopLoss: t.stopLoss,
+    takeProfit: t.takeProfit,
+    pnlSide: t.pnlSide,
+    pnlAmount: t.pnlAmount,
+  });
+}
 
 export type TradeInput = z.input<typeof tradeSchema>;
 export type TradeOutput = z.output<typeof tradeSchema>;

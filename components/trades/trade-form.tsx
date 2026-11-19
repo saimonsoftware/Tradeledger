@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -20,14 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createTrade, updateTrade } from "@/lib/trades/actions";
-import {
-  checkStop,
-  movePips,
-  PIP_LABEL,
-  pipsBetween,
-  suggestedRr,
-  tradeRrFromPrices,
-} from "@/lib/calculations/rr";
+import { checkLevel, PIP_LABEL, pipsBetween, tradeResult } from "@/lib/calculations/rr";
 import { formatR } from "@/lib/format/number";
 import type { Screenshot } from "@/lib/screenshots/storage";
 import { SYMBOLS } from "@/lib/trades/constants";
@@ -64,52 +57,48 @@ function usePnl(control: Control<TradeInput, unknown, TradeOutput>) {
   return side === "loss" ? -Math.abs(n) : Math.abs(n);
 }
 
-/** SL/TP distances, planned RR and the suggested Trade RR (same maths as the server). */
+/** SL/TP distances and the trade's result (same maths as the server). */
 function useLevels(control: Control<TradeInput, unknown, TradeOutput>) {
-  const [symbol, direction, entry, stopLoss, takeProfit, pnlSide, pnlAmount] = useWatch({
+  const [symbol, direction, entry, stopLoss, takeProfit, pnlSide, pnlAmount, rr] = useWatch({
     control,
-    name: ["symbol", "direction", "entryPrice", "stopLoss", "takeProfit", "pnlSide", "pnlAmount"],
+    name: [
+      "symbol",
+      "direction",
+      "entryPrice",
+      "stopLoss",
+      "takeProfit",
+      "pnlSide",
+      "pnlAmount",
+      "rr",
+    ],
   });
-  return levelsFor({ symbol, direction, entry, stopLoss, takeProfit, pnlSide, pnlAmount });
-}
-
-function levelsFor(v: {
-  symbol: string;
-  direction: "long" | "short";
-  entry: string;
-  stopLoss?: string;
-  takeProfit?: string;
-  pnlSide: "profit" | "loss";
-  pnlAmount?: string;
-}) {
-  const slOk = checkStop(v.direction, v.entry, v.stopLoss ?? null) === "ok";
+  const ok = (kind: "sl" | "tp", price?: string) =>
+    checkLevel(kind, direction, entry, price ?? null) === "ok";
+  const result = tradeResult({
+    symbol,
+    direction,
+    entryPrice: entry,
+    stopLoss: stopLoss ?? null,
+    takeProfit: takeProfit ?? null,
+    pnlSide,
+    pnlAmount: pnlAmount ?? null,
+  });
+  // The RR as it will be saved: calculated, or typed (signed like the P&L).
+  let savedRr: number | null = result.rr === null ? null : Number(result.rr);
+  const typed = Number((rr ?? "").replace(/r$/i, "").trim());
+  if (savedRr === null && pnlAmount?.trim() && rr?.trim() && Number.isFinite(typed)) {
+    savedRr = pnlSide === "loss" ? -Math.abs(typed) : Math.abs(typed);
+  }
   return {
-    slPips: slOk ? pipsBetween(v.symbol, v.entry, v.stopLoss ?? null) : null,
-    /** Signed: + in the trade's favour. */
-    tpPips: movePips(v.symbol, v.direction, v.entry, v.takeProfit ?? null),
-    /** Signed RR from prices (needs SL and TP). */
-    priceRr: tradeRrFromPrices(v.direction, v.entry, v.stopLoss ?? null, v.takeProfit ?? null),
-    suggested: suggestedRr({
-      direction: v.direction,
-      entryPrice: v.entry,
-      stopLoss: v.stopLoss ?? null,
-      takeProfit: v.takeProfit ?? null,
-      pnlSide: v.pnlSide,
-      pnlAmount: v.pnlAmount ?? null,
-    }),
+    slPips: ok("sl", stopLoss) ? pipsBetween(symbol, entry, stopLoss ?? null) : null,
+    tpPips: ok("tp", takeProfit) ? pipsBetween(symbol, entry, takeProfit ?? null) : null,
+    result,
+    savedRr,
   };
 }
 
-/** "25" → "+25", "-0.5" → "−0.5" (true minus sign). */
+/** "25" → "+25", "-10" → "−10" (true minus sign). */
 const signed = (n: string) => (n.startsWith("-") ? `\u2212${n.slice(1)}` : n === "0" ? n : `+${n}`);
-
-/** The Trade RR as it will be saved: signed like the P&L. */
-function useRr(control: Control<TradeInput, unknown, TradeOutput>, pnl: number | null) {
-  const rr = useWatch({ control, name: "rr" });
-  const n = Number((rr ?? "").replace(/r$/i, "").trim());
-  if (pnl === null || !rr?.trim() || !Number.isFinite(n)) return null;
-  return pnl < 0 ? -Math.abs(n) : Math.abs(n);
-}
 
 const resultLabel = (pnl: number | null) =>
   pnl === null ? "Open" : pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "Breakeven";
@@ -123,7 +112,7 @@ function TradeSummary({
   currency: string;
 }) {
   const pnl = usePnl(control);
-  const rr = useRr(control, pnl);
+  const rr = useLevels(control).savedRr;
   return (
     <aside aria-label="Trade summary" className="rounded-xl surface p-4 text-sm" aria-live="polite">
       <div className="flex items-center justify-between">
@@ -173,7 +162,7 @@ function CompactSummary({
   currency: string;
 }) {
   const pnl = usePnl(control);
-  const rr = useRr(control, pnl);
+  const rr = useLevels(control).savedRr;
   return (
     <div className="min-w-0 flex-1 text-sm" aria-live="polite">
       <p className="text-xs text-muted-foreground">Profit / loss</p>
@@ -256,7 +245,6 @@ export function TradeForm({
     handleSubmit,
     control,
     getValues,
-    setValue,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<TradeInput, unknown, TradeOutput>({
@@ -267,19 +255,10 @@ export function TradeForm({
   const accountId = useWatch({ control, name: "accountId" });
   const symbol = useWatch({ control, name: "symbol" });
   const direction = useWatch({ control, name: "direction" });
+  const pnlSide = useWatch({ control, name: "pnlSide" });
   const unit = symbol === "NQ" ? PIP_LABEL.NQ : PIP_LABEL.EURUSD;
   const levels = useLevels(control);
 
-  // Trade RR fills itself in from SL/TP and Profit/Loss, until the trader types
-  // their own value (e.g. they closed early). Clearing the box goes back to automatic.
-  const [rrManual, setRrManual] = useState(() => {
-    if (!defaultValues.rr) return false;
-    const start = levelsFor({ ...defaultValues, entry: defaultValues.entryPrice }).suggested;
-    return start === null || Number(start) !== Number(defaultValues.rr);
-  });
-  useEffect(() => {
-    if (!rrManual) setValue("rr", levels.suggested ?? "");
-  }, [rrManual, levels.suggested, setValue]);
   const tags = useWatch({ control, name: "tags" }) ?? "";
   const currency = accounts.find((a) => a.id === accountId)?.currency ?? "EUR";
 
@@ -446,16 +425,16 @@ export function TradeForm({
                 <>SL price {optional}</>,
                 { inputMode: "decimal", className: "tabular-nums" },
                 levels.slPips
-                  ? `SL: ${levels.slPips} ${unit}`
-                  : `${direction === "short" ? "Above" : "Below"} the entry price`,
+                  ? `SL: ${levels.slPips} ${unit} · where you get out on a loss`
+                  : `${direction === "short" ? "Above" : "Below"} the entry · where you get out on a loss`,
               )}
               {field(
                 "takeProfit",
-                <>TP price (your exit) {optional}</>,
+                <>TP price {optional}</>,
                 { inputMode: "decimal", className: "tabular-nums" },
                 levels.tpPips
-                  ? `TP: ${signed(levels.tpPips)} ${unit}${levels.priceRr ? ` · ${signed(levels.priceRr)}R` : ""}`
-                  : "Where you got out of the trade",
+                  ? `TP: ${levels.tpPips} ${unit} · where you get out on a win`
+                  : `${direction === "short" ? "Below" : "Above"} the entry · where you get out on a win`,
               )}
               <div className="space-y-2 @lg:col-span-2">
                 <span id={f("pnl-label")} className="text-sm font-medium">
@@ -509,50 +488,59 @@ export function TradeForm({
                 <FieldError id={f("pnlSide-error")} message={errors.pnlSide?.message} />
               </div>
               <div className="space-y-2 @lg:col-span-2">
-                <Label htmlFor={f("rr")}>Trade RR {optional}</Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative w-40">
-                    <Input
+                <Label htmlFor={f("rr")}>Trade RR {levels.result.rr === null && optional}</Label>
+                {levels.result.rr !== null ? (
+                  <>
+                    <output
                       id={f("rr")}
-                      aria-invalid={!!errors.rr}
-                      aria-describedby={errors.rr ? f("rr-error") : f("rr-hint")}
-                      inputMode="decimal"
-                      placeholder="e.g. 2.5"
-                      className="pr-8 tabular-nums"
-                      {...register("rr", {
-                        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-                          setRrManual(e.target.value.trim() !== ""),
-                      })}
-                    />
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
+                      aria-describedby={f("rr-hint")}
+                      className={cn(
+                        "flex h-8 w-fit min-w-40 items-center gap-3 rounded-lg border border-dashed px-2.5 text-sm font-medium tabular-nums",
+                        Number(levels.result.rr) > 0 && "text-profit",
+                        Number(levels.result.rr) < 0 && "text-loss",
+                      )}
                     >
-                      R
-                    </span>
-                  </div>
-                  {rrManual &&
-                    levels.suggested !== null &&
-                    Number(levels.suggested) !== Number(getValues("rr")) && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => setRrManual(false)}
+                      {formatR(Number(levels.result.rr))}
+                      {levels.result.pips !== null && (
+                        <span className="font-normal text-muted-foreground">
+                          {signed(levels.result.pips)} {unit}
+                        </span>
+                      )}
+                    </output>
+                    <p id={f("rr-hint")} className="text-xs text-muted-foreground">
+                      {pnlSide === "loss"
+                        ? "Calculated: out at your SL = −1R."
+                        : "Calculated: out at your TP = TP distance ÷ SL distance."}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="relative w-40">
+                      <Input
+                        id={f("rr")}
+                        aria-invalid={!!errors.rr}
+                        aria-describedby={errors.rr ? f("rr-error") : f("rr-hint")}
+                        inputMode="decimal"
+                        placeholder="e.g. 2.5"
+                        className="pr-8 tabular-nums"
+                        {...register("rr")}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
                       >
-                        Use calculated ({levels.suggested}R)
-                      </Button>
+                        R
+                      </span>
+                    </div>
+                    {!errors.rr && (
+                      <p id={f("rr-hint")} className="text-xs text-muted-foreground">
+                        Add your SL and TP prices to calculate it, or type it in. A loss is counted
+                        as −R automatically.
+                      </p>
                     )}
-                </div>
-                {!errors.rr && (
-                  <p id={f("rr-hint")} className="text-xs text-muted-foreground">
-                    {!rrManual && levels.suggested !== null
-                      ? "Calculated from your entry, SL and TP prices (no TP on a loss = SL hit, −1R). You can type over it."
-                      : "Fills in from your SL and TP prices, or type it in. A loss is counted as −R automatically."}
-                  </p>
+                    <FieldError id={f("rr-error")} message={errors.rr?.message} />
+                  </>
                 )}
-                <FieldError id={f("rr-error")} message={errors.rr?.message} />
               </div>
             </div>
           </fieldset>

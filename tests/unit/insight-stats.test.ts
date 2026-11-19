@@ -204,3 +204,39 @@ describe("computeInsightStats", () => {
     expect(empty.afterLoss).toBeNull();
   });
 });
+
+describe("R totals, pips and break-even win rate", () => {
+  it("adds up R and pips per symbol, and works out the break-even win rate", () => {
+    const s = computeInsightStats(
+      [
+        t({ symbol: "NQ", netPnl: 500, rMultiple: 2.5, pips: 50, slPips: 20, tpPips: 50 }),
+        t({ symbol: "NQ", netPnl: -200, rMultiple: -1, pips: -20, slPips: 20, tpPips: 50 }),
+        t({ symbol: "EURUSD", netPnl: 250, rMultiple: 2.5, pips: 25, slPips: 10, tpPips: 25 }),
+        t({ symbol: "EURUSD", netPnl: -100, rMultiple: -1, pips: -10, slPips: 10, tpPips: null }),
+      ],
+      "UTC",
+    );
+    expect(s.overall.totalR).toBe(3);
+    expect(s.overall.avgR).toBe(0.75);
+    // Units differ, so pips are kept per symbol.
+    expect(s.overall.netPipsBySymbol).toEqual({ NQ: 30, EURUSD: 15 });
+    expect(s.overall.pipsBySymbol.NQ).toMatchObject({
+      trades: 2,
+      netPips: 30,
+      avgWinPips: 50,
+      avgLossPips: -20,
+      avgSlPips: 20,
+      avgTpPips: 50,
+    });
+    expect(s.overall.pipsBySymbol.EURUSD.avgTpPips).toBe(25);
+    // avg win 2.5R, avg loss -1R → break even at 1 / 3.5 ≈ 28.57% wins
+    expect(s.overall.breakevenWinRate).toBe(0.2857);
+  });
+
+  it("has no totals without R or pips", () => {
+    const s = computeInsightStats([t({ rMultiple: null })], "UTC");
+    expect(s.overall.totalR).toBeNull();
+    expect(s.overall.netPipsBySymbol).toEqual({});
+    expect(s.overall.breakevenWinRate).toBeNull();
+  });
+});

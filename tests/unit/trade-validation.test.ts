@@ -25,7 +25,7 @@ describe("tradeSchema", () => {
     expect(r.symbol).toBe("NQ");
     expect(r.entryPrice).toBe("21480");
     expect(r.netPnl).toBe("391.60");
-    expect(r.stopLoss).toBeNull(); // no SL size
+    expect(r.stopLoss).toBeNull();
     expect(r.strategy).toBe("ORB");
     expect(r.tags).toEqual(["A+ setup", "patient"]);
     expect(r.notes).toBeNull();
@@ -54,53 +54,47 @@ describe("tradeSchema", () => {
       return r.success ? null : r.error.issues[0];
     };
     expect(issue({ pnlAmount: "" })?.message).toMatch(/profit or loss first/);
-    expect(issue({ pnlAmount: "0", rr: "2" })?.message).toMatch(/breakeven trade is 0R/);
+    // Breakeven is always 0R (a typed RR is ignored).
+    expect(tradeSchema.parse({ ...base, pnlAmount: "0", rr: "2" }).rMultiple).toBe("0");
     expect(issue({ rr: "0" })?.message).toMatch(/Only a breakeven/);
     expect(issue({ rr: "-2" })?.path).toEqual(["rr"]);
     expect(issue({ rr: "1000" })?.path).toEqual(["rr"]);
   });
 
-  describe("SL and TP (exit) prices", () => {
-    // NQ long at 21480, SL 21460 (20 points), out at TP 21530 (+50 points) = +2.5R
+  describe("SL and TP prices (win = out at TP, loss = out at SL)", () => {
+    // NQ long at 21480, SL 21460 (20 points), TP 21530 (50 points)
     const withLevels = { ...base, stopLoss: "21460", takeProfit: "21530", rr: "" };
 
-    it("works out the RR from the prices when none is typed", () => {
-      const win = tradeSchema.parse(withLevels);
+    it("calculates the RR from the prices, ignoring a typed RR", () => {
+      const win = tradeSchema.parse({ ...withLevels, rr: "9" });
       expect(win.stopLoss).toBe("21460");
       expect(win.takeProfit).toBe("21530");
       expect(win.rMultiple).toBe("2.50");
-      // Out below the entry: a partial loss.
-      const loss = tradeSchema.parse({ ...withLevels, takeProfit: "21470", pnlSide: "loss" });
-      expect(loss.rMultiple).toBe("-0.50");
+      expect(tradeSchema.parse({ ...withLevels, pnlSide: "loss" }).rMultiple).toBe("-1.00");
     });
 
-    it("loss without a TP = SL hit (−1R)", () => {
-      const r = tradeSchema.parse({ ...withLevels, takeProfit: "", pnlSide: "loss" });
-      expect(r.rMultiple).toBe("-1.00");
+    it("uses a typed RR when the prices can't give one", () => {
+      expect(tradeSchema.parse({ ...withLevels, takeProfit: "", rr: "1.2" }).rMultiple).toBe("1.2");
     });
 
-    it("keeps a typed RR", () => {
-      expect(tradeSchema.parse({ ...withLevels, rr: "1.2" }).rMultiple).toBe("1.2");
-    });
-
-    it("flags a TP that disagrees with the Profit/Loss choice", () => {
-      const r = tradeSchema.safeParse({ ...withLevels, pnlSide: "loss" });
-      expect(!r.success && r.error.issues[0].path).toEqual(["pnlSide"]);
-      expect(!r.success && r.error.issues[0].message).toMatch(/win \(\+2.50R\)/);
+    it("no RR for an open trade", () => {
+      expect(tradeSchema.parse({ ...withLevels, pnlAmount: "" }).rMultiple).toBeNull();
     });
 
     it.each([
-      ["long", "21500", /must be below/],
-      ["short", "21400", /must be above/],
-      ["long", "21480", /can't equal/],
-    ] as const)("%s: rejects the SL at %s", (direction, stopLoss, message) => {
+      ["long", "stopLoss", "21500", /SL must be below/],
+      ["long", "takeProfit", "21400", /TP must be above/],
+      ["short", "stopLoss", "21400", /SL must be above/],
+      ["short", "takeProfit", "21500", /TP must be below/],
+      ["long", "stopLoss", "21480", /can't equal/],
+    ] as const)("%s: rejects %s at %s", (direction, field, value, message) => {
       const r = tradeSchema.safeParse({
         ...withLevels,
         direction,
-        takeProfit: "",
-        stopLoss,
+        ...(direction === "short" ? { stopLoss: "21500", takeProfit: "21430" } : {}),
+        [field]: value,
       });
-      expect(!r.success && r.error.issues[0].path).toEqual(["stopLoss"]);
+      expect(!r.success && r.error.issues[0].path).toEqual([field]);
       expect(!r.success && r.error.issues[0].message).toMatch(message);
     });
   });
