@@ -1,12 +1,10 @@
 "use client";
 
-import { Plus } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { Button } from "@/components/ui/button";
+import { QuickAddTrade } from "@/components/trades/quick-add-trade";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const TITLES: [prefix: string, title: string][] = [
@@ -32,13 +30,7 @@ export function TopBar({ userMenu }: { userMenu: ReactNode }) {
         <PageTitle />
       </Suspense>
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
-        <Button asChild size="sm" variant="contrast" className="h-8 px-2.5 sm:px-3">
-          <Link href="/app/trades">
-            <Plus data-icon="inline-start" />
-            <span className="hidden sm:inline">Log trade</span>
-            <span className="sr-only sm:hidden">Log trade</span>
-          </Link>
-        </Button>
+        <QuickAddTrade />
         <ThemeToggle />
         {userMenu}
       </div>

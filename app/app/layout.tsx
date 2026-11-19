@@ -19,7 +19,7 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="min-w-0">
           <TopBar
             userMenu={
               <Suspense fallback={<div className="size-8" />}>
@@ -27,7 +27,11 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
               </Suspense>
             }
           />
-          <div id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+          {/* min-w-0: lets wide content (e.g. the trades table) scroll inside its card instead of stretching the page. */}
+          <div
+            id="main"
+            className="mx-auto w-full max-w-6xl min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8"
+          >
             {children}
           </div>
         </SidebarInset>
