@@ -64,6 +64,18 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // 2FA: password entered but not the code yet → the code step (for app pages).
+  if (isLoggedIn && isAppRoute) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login/verify";
+      url.search = "";
+      url.searchParams.set("next", pathname + search);
+      return redirectWithCookies(url, response);
+    }
+  }
+
   if (!isLoggedIn && isAppRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

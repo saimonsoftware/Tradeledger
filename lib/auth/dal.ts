@@ -24,11 +24,22 @@ export const getCurrentUser = cache(async () => {
   // instead of trusting the access token until it expires.
   const { data: active } = await supabase.rpc("session_is_active");
   if (active !== true) return null;
-  return { id: data.user.id, email: data.user.email ?? "" };
+  // 2FA: password done but code not yet entered (aal1, while the account requires aal2).
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const mfaPending = aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2";
+  return { id: data.user.id, email: data.user.email ?? "", mfaPending };
 });
 
-/** For pages and Server Actions that require a logged-in user. */
+/** For pages and Server Actions that require a fully logged-in user (2FA done if enabled). */
 export async function requireUser() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.mfaPending) redirect("/login/verify");
+  return user;
+}
+
+/** For the 2FA code page itself: logged in with a password, code may still be pending. */
+export async function requirePasswordSession() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   return user;

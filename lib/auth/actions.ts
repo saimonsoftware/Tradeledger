@@ -100,6 +100,12 @@ export async function logIn(input: LogInInput, captchaToken?: string): Promise<A
     return { ok: false, error: INVALID_LOGIN };
   }
 
+  // Accounts with 2FA must also enter an authenticator code.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+    redirect(`/login/verify?next=${encodeURIComponent(safeRedirectPath(next))}`);
+  }
+
   redirect(safeRedirectPath(next));
 }
 

@@ -5,8 +5,10 @@ import { ChangePasswordForm } from "@/components/settings/change-password-form";
 import { DeleteAccount } from "@/components/settings/delete-account";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { ThemeSetting } from "@/components/settings/theme-setting";
+import { TwoFactor } from "@/components/settings/two-factor";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getTotpStatus } from "@/lib/auth/mfa-actions";
 import { requireUser } from "@/lib/auth/dal";
 import { getProfile } from "@/lib/profile/data";
 import { signOutEverywhere } from "@/lib/settings/actions";
@@ -68,6 +70,11 @@ async function ProfileSection() {
   );
 }
 
+async function TwoFactorSection() {
+  const { enabled } = await getTotpStatus();
+  return <TwoFactor enabled={enabled} />;
+}
+
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
@@ -93,6 +100,18 @@ export default function SettingsPage() {
         description="You'll stay signed in here; other devices are signed out."
       >
         <ChangePasswordForm />
+      </Section>
+
+      <Section
+        id="mfa-title"
+
+        title="Two-factor authentication"
+
+        description="Even if someone learns your password, they can't log in without your phone."
+      >
+        <Suspense fallback={<Skeleton className="h-10 rounded-lg" />}>
+          <TwoFactorSection />
+        </Suspense>
       </Section>
 
       <Section

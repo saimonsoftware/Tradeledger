@@ -257,6 +257,7 @@ export type Database = {
     }
     Functions: {
       delete_my_account: { Args: never; Returns: undefined }
+      mfa_satisfied: { Args: never; Returns: boolean }
       session_is_active: { Args: never; Returns: boolean }
     }
     Enums: {

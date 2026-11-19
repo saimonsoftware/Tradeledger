@@ -520,3 +520,9 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - Lighthouse (prod build): landing 91/100/96/100, login 99/100/96/100, signup 93/100/96/100. **Never animate the hero `<h1>`**: it's the LCP element.
 - Error pages use the `retry()` prop (Next 16), not `reset()`. `app/app/not-found.tsx` renders inside the app shell.
 - Test-script gotcha: never wait with `waitForURL("**/app/dashboard")` (it matches `/login?next=/app/dashboard`); use a regex anchored with `$`.
+
+### Two-factor authentication (Phase 7)
+
+- TOTP via Supabase MFA. Login → if `aal1` with `nextLevel aal2` → `/login/verify`. Enforced in three layers: proxy (app routes), DAL (`requireUser()` redirects; `requirePasswordSession()` only for the verify page), and **RLS restrictive policies** `"Require 2FA when enabled"` using `mfa_satisfied()` on every table (+ `delete_my_account()` checks it).
+- **Every new user-data table must also get the restrictive 2FA policy**, alongside its owner-only policies and grants.
+- Turning 2FA off requires a current code. `tests/e2e/two-factor.spec.ts` covers the whole flow (uses user B; always cleans up).
