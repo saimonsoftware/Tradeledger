@@ -29,7 +29,7 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
   let query = supabase
     .from("trades")
     .select(
-      "symbol, direction, strategy, tags, rating, entry_time, exit_time, net_pnl, notes, account:trading_accounts(currency)",
+      "symbol, direction, strategy, tags, rating, entry_time, exit_time, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
     )
     .eq("status", "closed")
     .order("exit_time", { ascending: false })
@@ -50,8 +50,8 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
     entryTime: t.entry_time,
     exitTime: t.exit_time!,
     netPnl: Number(t.net_pnl),
-    // P&L is entered directly (no position size), so there is no R-multiple.
-    rMultiple: null,
+    // Trade RR, as typed by the trader (null when not recorded).
+    rMultiple: t.r_multiple === null ? null : Number(t.r_multiple),
     currency: t.account?.currency ?? "EUR",
   }));
 
@@ -69,6 +69,7 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
       strategy: t.strategy,
       tags: t.tags,
       rating: t.rating,
+      r: t.r_multiple === null ? null : Number(t.r_multiple),
       result: Number(t.net_pnl) > 0 ? "win" : Number(t.net_pnl) < 0 ? "loss" : "breakeven",
       note: t.notes!.trim().slice(0, MAX_NOTE_CHARS),
     }));

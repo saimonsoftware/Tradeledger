@@ -10,6 +10,7 @@ type TradeLike = {
   entry_price: number;
   exit_price: number | null;
   net_pnl: number | null;
+  r_multiple: number | null;
   stop_loss: number | null;
   take_profit: number | null;
   strategy: string | null;
@@ -31,6 +32,7 @@ export function emptyTradeValues(nowLocal: string, accountId = ""): TradeInput {
     exitPrice: "",
     pnlAmount: "",
     pnlSide: "profit",
+    rr: "",
     stopLoss: "",
     takeProfit: "",
     strategy: "",
@@ -53,6 +55,7 @@ export function tradeToFormValues(t: TradeLike, tz: string): TradeInput {
     exitPrice: str(t.exit_price),
     pnlAmount: pnl === null ? "" : pnl.replace(/^-/, ""),
     pnlSide: pnl?.startsWith("-") ? "loss" : "profit",
+    rr: t.r_multiple === null ? "" : String(Math.abs(Number(t.r_multiple))),
     stopLoss: str(t.stop_loss),
     takeProfit: str(t.take_profit),
     strategy: t.strategy ?? "",

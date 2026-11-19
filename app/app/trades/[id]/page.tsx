@@ -10,7 +10,7 @@ import { DeleteTradeButton } from "@/components/trades/delete-trade-button";
 import { TradeScreenshots } from "@/components/trades/trade-screenshots";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice } from "@/lib/format/number";
+import { formatPrice, formatR } from "@/lib/format/number";
 import { getProfile } from "@/lib/profile/data";
 import { getScreenshotsForTrade, getTrade } from "@/lib/trades/data";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,7 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
 
       <section
         aria-label="Results"
-        className="mt-6 grid grid-cols-2 gap-5 rounded-2xl surface card-glow p-5 sm:grid-cols-4 sm:p-6"
+        className="mt-6 grid grid-cols-2 gap-5 rounded-2xl surface card-glow p-5 sm:grid-cols-5 sm:p-6"
       >
         <div>
           <p className="text-xs text-muted-foreground">Profit / loss</p>
@@ -88,6 +88,18 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
             ) : (
               <SignedAmount value={net} currency={cur} />
             )}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Trade RR</p>
+          <p
+            className={cn(
+              "mt-1 text-lg font-medium tabular-nums",
+              Number(trade.r_multiple) > 0 && "text-profit",
+              Number(trade.r_multiple) < 0 && "text-loss",
+            )}
+          >
+            {formatR(trade.r_multiple)}
           </p>
         </div>
         <div>

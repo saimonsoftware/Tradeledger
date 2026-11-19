@@ -155,6 +155,29 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
       expect(symbol.error).not.toBeNull();
     });
 
+    it("keeps Trade RR consistent with the P&L (same sign, closed trades only)", async () => {
+      const wrongSign = await A.from("trades")
+        .update({ r_multiple: -2 })
+        .eq("id", aTradeId)
+        .select();
+      expect(wrongSign.error).not.toBeNull();
+      const ok = await A.from("trades")
+        .update({ r_multiple: 2 })
+        .eq("id", aTradeId)
+        .select("r_multiple")
+        .single();
+      expect(Number(ok.data!.r_multiple)).toBe(2);
+      const open = await A.from("trades").insert({
+        account_id: aAccountId,
+        symbol: "NQ",
+        direction: "long",
+        entry_time: new Date().toISOString(),
+        entry_price: 100,
+        r_multiple: 1,
+      });
+      expect(open.error).not.toBeNull();
+    });
+
     it("sees the correct balance (10000 + 500 + 791.60)", async () => {
       const { data } = await A.from("account_balances")
         .select("current_balance")

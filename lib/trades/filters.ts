@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { DIRECTIONS, RESULTS, STATUSES } from "./constants";
 
-export const SORT_FIELDS = ["entry_time", "exit_time", "symbol", "net_pnl"] as const;
+export const SORT_FIELDS = ["entry_time", "exit_time", "symbol", "net_pnl", "r_multiple"] as const;
 export type SortField = (typeof SORT_FIELDS)[number];
 
 const one = (v: unknown) => (Array.isArray(v) ? v[0] : v);

@@ -553,10 +553,11 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 
 ### Simple trades & screenshots (replaces parts of spec 5.6)
 
-- The owner asked for a simpler trade form: symbols **EURUSD / NQ only** (`SYMBOLS` in `lib/trades/constants.ts`, DB check `trades_symbol_allowed`, NOT VALID for older rows). No asset class, quantity, multiplier, fees or R-multiple.
+- The owner asked for a simpler trade form: symbols **EURUSD / NQ only** (`SYMBOLS` in `lib/trades/constants.ts`, DB check `trades_symbol_allowed`, NOT VALID for older rows). No asset class, quantity, multiplier or fees.
 - **P&L is typed by the trader**: unsigned amount + Profit/Loss toggle (iPhone decimal keypads have no minus key) → `netPnl` signed string. Empty = open trade.
 - `trades.exit_time` and `status` are generated from `net_pnl`: a closed trade's `exit_time` = its `entry_time`, so dashboard/week/coach logic is unchanged. Never send them.
-- The AI Coach gets `rMultiple: null` and an asset class derived from the symbol (`SYMBOL_ASSET_CLASS`). Tool definitions/prompts were deliberately NOT changed (that would break replay of saved conversations).
+- **Trade RR** (`trades.r_multiple`, numeric(8,2)) is typed by the trader, unsigned in the form; its sign follows Profit/Loss. DB checks: closed trades only, same sign as `net_pnl`, |R| < 1000. The AI Coach's R stats use it.
+- The AI Coach gets an asset class derived from the symbol (`SYMBOL_ASSET_CLASS`). Tool definitions/prompts were deliberately NOT changed (that would break replay of saved conversations).
 - **Screenshots**: private bucket `trade-screenshots`, path `<user_id>/<trade_id>/<uuid>.<ext>`. Storage RLS = own folder + own trade + max 6 (`can_add_trade_screenshot()`, SECURITY DEFINER, because a storage.objects policy can't query storage.objects: "infinite recursion" → storage reports `DatabaseInvalidObjectDefinition`). Restrictive 2FA policy too.
 - Uploads: browser shrinks to ≤2400px WebP/JPEG (`lib/screenshots/prepare.ts`), Server Action checks size + magic bytes (`lib/screenshots/sniff.ts`); `serverActions.bodySizeLimit` = 4mb (Vercel's limit is 4.5 MB). Viewed through 1-hour signed URLs (CSP `img-src` allows the Supabase origin).
 - Storage files are NOT removed by DB cascades: `deleteTrade` and `deleteAccount` remove them explicitly; tests clean up their files too.

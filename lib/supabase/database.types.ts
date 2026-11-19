@@ -306,6 +306,7 @@ export type Database = {
           id: string
           net_pnl: number | null
           notes: string | null
+          r_multiple: number | null
           rating: number | null
           status: string | null
           stop_loss: number | null
@@ -327,6 +328,7 @@ export type Database = {
           id?: string
           net_pnl?: number | null
           notes?: string | null
+          r_multiple?: number | null
           rating?: number | null
           status?: string | null
           stop_loss?: number | null
@@ -348,6 +350,7 @@ export type Database = {
           id?: string
           net_pnl?: number | null
           notes?: string | null
+          r_multiple?: number | null
           rating?: number | null
           status?: string | null
           stop_loss?: number | null
@@ -480,6 +483,10 @@ export type Database = {
     }
     Functions: {
       ai_try_consume: { Args: { p_kind: string }; Returns: boolean }
+      can_add_trade_screenshot: {
+        Args: { p_trade_id: string }
+        Returns: boolean
+      }
       delete_my_account: { Args: never; Returns: undefined }
       mfa_satisfied: { Args: never; Returns: boolean }
       session_is_active: { Args: never; Returns: boolean }

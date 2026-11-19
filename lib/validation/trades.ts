@@ -7,6 +7,8 @@ import { DIRECTIONS, MAX_TAGS, PNL_SIDES, SYMBOLS } from "@/lib/trades/constants
 // 18 significant digits (beyond a JS number's precision) are stored exactly.
 const DECIMAL_18_8 = /^\d{1,10}(\.\d{1,8})?$/;
 const MONEY_18_2 = /^\d{1,13}(\.\d{1,2})?$/;
+// Trade RR (result in R): up to 3 integer digits and 2 decimals (numeric(8,2), < 1000).
+const RR = /^\d{1,3}(\.\d{1,2})?$/;
 
 const clean = (s: string) => s.trim().replace(/,/g, "");
 
@@ -76,6 +78,17 @@ export const tradeSchema = z
         ]),
       ),
     pnlSide: z.enum(PNL_SIDES),
+    // The trade's result in R, typed without a sign: it follows Profit/Loss.
+    rr: z
+      .string()
+      .optional()
+      .transform((s) => (s ? clean(s).replace(/r$/i, "").trim() : ""))
+      .pipe(
+        z.union([
+          z.literal("").transform(() => null),
+          z.string().regex(RR, "Enter the RR like 2 or 1.5"),
+        ]),
+      ),
     stopLoss: optionalPositiveDecimal("stop loss"),
     takeProfit: optionalPositiveDecimal("take profit"),
     strategy: z
@@ -114,10 +127,22 @@ export const tradeSchema = z
       .transform((s) => (s ? Number(s) : null))
       .pipe(z.union([z.null(), z.number().int().min(1).max(5)])),
   })
-  .transform(({ pnlAmount, pnlSide, ...rest }) => ({
+  .superRefine((t, ctx) => {
+    if (t.rr === null) return;
+    if (t.pnlAmount === null) {
+      ctx.addIssue({ code: "custom", path: ["rr"], message: "Add the profit or loss first" });
+    } else if (Number(t.pnlAmount) === 0 && Number(t.rr) !== 0) {
+      ctx.addIssue({ code: "custom", path: ["rr"], message: "A breakeven trade is 0R" });
+    } else if (Number(t.pnlAmount) !== 0 && Number(t.rr) === 0) {
+      ctx.addIssue({ code: "custom", path: ["rr"], message: "Only a breakeven trade is 0R" });
+    }
+  })
+  .transform(({ pnlAmount, pnlSide, rr, ...rest }) => ({
     ...rest,
     /** Signed P&L as an exact decimal string ("-125.50"), or null while open. */
     netPnl: pnlAmount === null ? null : signedMoney(pnlAmount, pnlSide),
+    /** Signed result in R ("-1", "2.5"), with the same sign as the P&L. */
+    rMultiple: rr === null ? null : signedMoney(rr, pnlSide),
   }));
 
 export type TradeInput = z.input<typeof tradeSchema>;

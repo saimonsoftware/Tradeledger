@@ -11,6 +11,7 @@ const base: TradeInput = {
   exitPrice: "21500",
   pnlAmount: "391.60",
   pnlSide: "profit",
+  rr: "2.5",
   stopLoss: "",
   takeProfit: "",
   strategy: " ORB ",
@@ -42,13 +43,34 @@ describe("tradeSchema", () => {
     );
   });
 
+  it("signs the Trade RR like the P&L", () => {
+    expect(tradeSchema.parse(base).rMultiple).toBe("2.5");
+    expect(tradeSchema.parse({ ...base, pnlSide: "loss", rr: "1" }).rMultiple).toBe("-1");
+    expect(tradeSchema.parse({ ...base, rr: " 1.5R " }).rMultiple).toBe("1.5");
+    expect(tradeSchema.parse({ ...base, rr: "" }).rMultiple).toBeNull();
+  });
+
+  it("rejects a Trade RR that doesn't fit the result", () => {
+    const issue = (v: Partial<TradeInput>) => {
+      const r = tradeSchema.safeParse({ ...base, ...v });
+      return r.success ? null : r.error.issues[0];
+    };
+    expect(issue({ pnlAmount: "" })?.message).toMatch(/profit or loss first/);
+    expect(issue({ pnlAmount: "0", rr: "2" })?.message).toMatch(/breakeven trade is 0R/);
+    expect(issue({ rr: "0" })?.message).toMatch(/Only a breakeven/);
+    expect(issue({ rr: "-2" })?.path).toEqual(["rr"]);
+    expect(issue({ rr: "1000" })?.path).toEqual(["rr"]);
+  });
+
   it("treats zero as breakeven, never -0", () => {
-    expect(tradeSchema.parse({ ...base, pnlAmount: "0.00", pnlSide: "loss" }).netPnl).toBe("0");
+    expect(tradeSchema.parse({ ...base, pnlAmount: "0.00", pnlSide: "loss", rr: "" }).netPnl).toBe(
+      "0",
+    );
     expect(signedMoney("0", "loss")).toBe("0");
   });
 
   it("accepts an open trade (no P&L, no exit price)", () => {
-    const r = tradeSchema.parse({ ...base, pnlAmount: "", exitPrice: "" });
+    const r = tradeSchema.parse({ ...base, pnlAmount: "", exitPrice: "", rr: "" });
     expect(r.netPnl).toBeNull();
     expect(r.exitPrice).toBeNull();
   });

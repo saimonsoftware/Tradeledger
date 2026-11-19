@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createTrade, updateTrade } from "@/lib/trades/actions";
+import { formatR } from "@/lib/format/number";
 import type { Screenshot } from "@/lib/screenshots/storage";
 import { SYMBOLS } from "@/lib/trades/constants";
 import { useFieldIds } from "@/lib/use-field-ids";
@@ -55,6 +56,14 @@ function usePnl(control: Control<TradeInput, unknown, TradeOutput>) {
   return side === "loss" ? -Math.abs(n) : Math.abs(n);
 }
 
+/** The RR as typed, signed like the P&L (null if empty or the trade is open). */
+function useRr(control: Control<TradeInput, unknown, TradeOutput>, pnl: number | null) {
+  const rr = useWatch({ control, name: "rr" });
+  const n = Number((rr ?? "").replace(/r$/i, "").trim());
+  if (pnl === null || !rr?.trim() || !Number.isFinite(n)) return null;
+  return pnl < 0 ? -Math.abs(n) : Math.abs(n);
+}
+
 const resultLabel = (pnl: number | null) =>
   pnl === null ? "Open" : pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "Breakeven";
 
@@ -67,6 +76,7 @@ function TradeSummary({
   currency: string;
 }) {
   const pnl = usePnl(control);
+  const rr = useRr(control, pnl);
   return (
     <aside aria-label="Trade summary" className="rounded-xl surface p-4 text-sm" aria-live="polite">
       <div className="flex items-center justify-between">
@@ -88,6 +98,16 @@ function TradeSummary({
           <SignedAmount value={pnl} currency={currency} />
         )}
       </p>
+      {rr !== null && (
+        <p
+          className={cn(
+            "mt-1 text-sm font-medium tabular-nums",
+            rr > 0 ? "text-profit" : rr < 0 ? "text-loss" : "text-muted-foreground",
+          )}
+        >
+          {formatR(rr)}
+        </p>
+      )}
       <p className="mt-3 text-xs text-muted-foreground">
         {pnl === null
           ? "Leave the P&L empty while the trade is still open."
@@ -106,6 +126,7 @@ function CompactSummary({
   currency: string;
 }) {
   const pnl = usePnl(control);
+  const rr = useRr(control, pnl);
   return (
     <div className="min-w-0 flex-1 text-sm" aria-live="polite">
       <p className="text-xs text-muted-foreground">Profit / loss</p>
@@ -114,6 +135,16 @@ function CompactSummary({
           <span className="text-muted-foreground">Open trade</span>
         ) : (
           <SignedAmount value={pnl} currency={currency} className="text-base" />
+        )}
+        {rr !== null && (
+          <span
+            className={cn(
+              "ml-2 text-xs tabular-nums",
+              rr > 0 ? "text-profit" : rr < 0 ? "text-loss" : "",
+            )}
+          >
+            {formatR(rr)}
+          </span>
         )}
       </p>
     </div>
@@ -398,6 +429,33 @@ export function TradeForm({
                   </p>
                 )}
                 <FieldError id={f("pnlAmount-error")} message={errors.pnlAmount?.message} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={f("rr")}>Trade RR {optional}</Label>
+                <div className="relative">
+                  <Input
+                    id={f("rr")}
+                    aria-invalid={!!errors.rr}
+                    aria-describedby={errors.rr ? f("rr-error") : f("rr-hint")}
+                    inputMode="decimal"
+                    placeholder="e.g. 2.5"
+                    className="pr-8 tabular-nums"
+                    {...register("rr")}
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
+                  >
+                    R
+                  </span>
+                </div>
+                {!errors.rr && (
+                  <p id={f("rr-hint")} className="text-xs text-muted-foreground">
+                    What the trade made in multiples of your risk. A loss is counted as −R
+                    automatically.
+                  </p>
+                )}
+                <FieldError id={f("rr-error")} message={errors.rr?.message} />
               </div>
             </div>
           </fieldset>

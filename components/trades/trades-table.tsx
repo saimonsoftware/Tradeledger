@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 
 import { SignedAmount } from "@/components/common/signed-amount";
-import { formatPrice } from "@/lib/format/number";
+import { formatPrice, formatR } from "@/lib/format/number";
 import type { TradeListItem } from "@/lib/trades/data";
 import { tradesHref, type SortField, type TradeFilters } from "@/lib/trades/filters";
 import { cn } from "@/lib/utils";
@@ -77,6 +77,7 @@ export function TradesTable({
                 Exit
               </th>
               <SortHeader field="net_pnl" label="Net P&L" filters={filters} align="right" />
+              <SortHeader field="r_multiple" label="RR" filters={filters} align="right" />
               <th scope="col" className="w-10 px-2 py-2.5">
                 <span className="sr-only">Actions</span>
               </th>
@@ -137,6 +138,15 @@ export function TradesTable({
                     ) : (
                       <SignedAmount value={Number(t.net_pnl)} currency={currency} />
                     )}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-3 py-2.5 text-right tabular-nums",
+                      Number(t.r_multiple) > 0 && "text-profit",
+                      Number(t.r_multiple) < 0 && "text-loss",
+                    )}
+                  >
+                    {formatR(t.r_multiple)}
                   </td>
                   <td className="px-2 py-2.5">
                     <TradeRowActions tradeId={t.id} label={label} />

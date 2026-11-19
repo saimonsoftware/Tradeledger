@@ -42,6 +42,7 @@ function toRow(v: TradeOutput, tz: string) {
     entry_price: numeric(v.entryPrice),
     exit_price: numericOrNull(v.exitPrice),
     net_pnl: numericOrNull(v.netPnl),
+    r_multiple: numericOrNull(v.rMultiple),
     stop_loss: numericOrNull(v.stopLoss),
     take_profit: numericOrNull(v.takeProfit),
     strategy: v.strategy,
