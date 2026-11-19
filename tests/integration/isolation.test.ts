@@ -286,6 +286,69 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
     });
   });
 
+  // ---------------------------------------------------------------- AI Coach data
+  describe("AI Coach reports and chats are private too", () => {
+    let reportId: string;
+
+    beforeAll(async () => {
+      const r = await A.from("ai_reports")
+        .insert({
+          trade_count: 1,
+          stats: { note: "A's stats" },
+          report: { summary: "A's private report" },
+          model: "test",
+        })
+        .select("id")
+        .single();
+      expect(r.error).toBeNull();
+      reportId = r.data!.id;
+      expect(
+        (
+          await A.from("ai_messages").insert({
+            report_id: reportId,
+            role: "user",
+            content: "A's question",
+          })
+        ).error,
+      ).toBeNull();
+    });
+
+    it("B cannot read A's report or chat", async () => {
+      expect((await B.from("ai_reports").select("*").eq("id", reportId)).data).toEqual([]);
+      expect((await B.from("ai_messages").select("*").eq("report_id", reportId)).data).toEqual([]);
+    });
+
+    it("B cannot change or delete A's report", async () => {
+      expect(
+        (
+          await B.from("ai_reports")
+            .update({ report: { summary: "pwned" } })
+            .eq("id", reportId)
+            .select()
+        ).data,
+      ).toEqual([]);
+      expect((await B.from("ai_reports").delete().eq("id", reportId).select()).data).toEqual([]);
+      const still = await A.from("ai_reports").select("report").eq("id", reportId).single();
+      expect(still.data?.report).toEqual({ summary: "A's private report" });
+    });
+
+    it("B cannot add a message to A's report", async () => {
+      const { error } = await B.from("ai_messages").insert({
+        report_id: reportId,
+        role: "user",
+        content: "sneaky",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("nobody can write to the usage log directly (limits can't be reset)", async () => {
+      expect(
+        (await A.from("ai_usage").insert({ user_id: aId, kind: "report" })).error,
+      ).not.toBeNull();
+      expect((await B.from("ai_usage").select("*").eq("user_id", aId)).data).toEqual([]);
+    });
+  });
+
   // ---------------------------------------------------------------- logged out
   describe("A logged-out visitor", () => {
     it.each([

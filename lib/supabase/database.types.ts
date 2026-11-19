@@ -65,8 +65,137 @@ export type Database = {
           },
         ]
       }
+      ai_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          input_tokens: number | null
+          output_tokens: number | null
+          report_id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          report_id: string
+          role: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          report_id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_report_id_user_id_fkey"
+            columns: ["report_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "ai_reports"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      ai_reports: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          id: string
+          input_tokens: number | null
+          model: string
+          output_tokens: number | null
+          period_from: string | null
+          period_to: string | null
+          report: Json
+          stats: Json
+          trade_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          model: string
+          output_tokens?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          report: Json
+          stats: Json
+          trade_count: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string
+          output_tokens?: number | null
+          period_from?: string | null
+          period_to?: string | null
+          report?: Json
+          stats?: Json
+          trade_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_reports_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "account_balances"
+            referencedColumns: ["account_id", "user_id"]
+          },
+          {
+            foreignKeyName: "ai_reports_account_id_user_id_fkey"
+            columns: ["account_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "trading_accounts"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
+      ai_usage: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          ai_consent_at: string | null
           created_at: string
           default_currency: string
           display_name: string | null
@@ -75,6 +204,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_consent_at?: string | null
           created_at?: string
           default_currency?: string
           display_name?: string | null
@@ -83,6 +213,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_consent_at?: string | null
           created_at?: string
           default_currency?: string
           display_name?: string | null
@@ -256,6 +387,7 @@ export type Database = {
       }
     }
     Functions: {
+      ai_try_consume: { Args: { p_kind: string }; Returns: boolean }
       delete_my_account: { Args: never; Returns: undefined }
       mfa_satisfied: { Args: never; Returns: boolean }
       session_is_active: { Args: never; Returns: boolean }

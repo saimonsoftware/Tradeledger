@@ -526,3 +526,9 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - TOTP via Supabase MFA. Login → if `aal1` with `nextLevel aal2` → `/login/verify`. Enforced in three layers: proxy (app routes), DAL (`requireUser()` redirects; `requirePasswordSession()` only for the verify page), and **RLS restrictive policies** `"Require 2FA when enabled"` using `mfa_satisfied()` on every table (+ `delete_my_account()` checks it).
 - **Every new user-data table must also get the restrictive 2FA policy**, alongside its owner-only policies and grants.
 - Turning 2FA off requires a current code. `tests/e2e/two-factor.spec.ts` covers the whole flow (uses user B; always cleans up).
+
+### AI Coach (in progress)
+- Claude (Anthropic API, official `@anthropic-ai/sdk`) added to the stack with the owner's approval. `ANTHROPIC_API_KEY` is **server-only** (never `NEXT_PUBLIC_`), in `.env.local` and as a Vercel **Secret**.
+- Numbers come from `lib/insights/stats.ts` (pure, unit-tested); the model only interprets them and never does arithmetic.
+- Tables `ai_reports`, `ai_messages` (owner-only RLS + 2FA + grants), `ai_usage` (append-only, read-only for users). Limits are enforced atomically by `ai_try_consume(kind)` (5 reports / 30 chat messages per rolling 24h), and are hard-coded in SQL so callers can't raise them. Don't call it from tests (it spends the real quota).
+- Users opt in via `profiles.ai_consent_at` before any data is sent to Anthropic.
