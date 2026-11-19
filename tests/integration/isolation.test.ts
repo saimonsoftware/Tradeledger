@@ -122,6 +122,8 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
   afterAll(async () => {
     if (!A || !B) return;
     await A.from("ai_reports").delete().eq("user_id", aId); // also removes their chat messages
+    await A.from("coach_conversations").delete().eq("user_id", aId);
+    await A.from("trading_rules").delete().eq("user_id", aId);
     await A.from("trading_accounts").delete().eq("user_id", aId);
     await B.from("trading_accounts").delete().eq("user_id", bId);
     await A.auth.signOut();
@@ -347,6 +349,69 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
         (await A.from("ai_usage").insert({ user_id: aId, kind: "report" })).error,
       ).not.toBeNull();
       expect((await B.from("ai_usage").select("*").eq("user_id", aId)).data).toEqual([]);
+    });
+  });
+
+  // ---------------------------------------------------------------- Playbook & Coach chat
+  describe("Playbook rules and coach conversations are private", () => {
+    let ruleId: string;
+    let convId: string;
+
+    beforeAll(async () => {
+      const r = await A.from("trading_rules")
+        .insert({ title: "A's secret rule", category: "risk" })
+        .select("id")
+        .single();
+      expect(r.error).toBeNull();
+      ruleId = r.data!.id;
+      const c = await A.from("coach_conversations")
+        .insert({ title: "A's chat" })
+        .select("id")
+        .single();
+      expect(c.error).toBeNull();
+      convId = c.data!.id;
+      expect(
+        (
+          await A.from("coach_messages").insert({
+            conversation_id: convId,
+            role: "user",
+            content: "hi",
+            display_text: "hi",
+          })
+        ).error,
+      ).toBeNull();
+    });
+
+    it("B cannot read, edit or delete A's rules", async () => {
+      expect((await B.from("trading_rules").select("*").eq("id", ruleId)).data).toEqual([]);
+      expect(
+        (await B.from("trading_rules").update({ title: "pwned" }).eq("id", ruleId).select()).data,
+      ).toEqual([]);
+      expect((await B.from("trading_rules").delete().eq("id", ruleId).select()).data).toEqual([]);
+    });
+
+    it("B cannot read A's conversations or add to them", async () => {
+      expect((await B.from("coach_conversations").select("*").eq("id", convId)).data).toEqual([]);
+      expect(
+        (await B.from("coach_messages").select("*").eq("conversation_id", convId)).data,
+      ).toEqual([]);
+      const { error } = await B.from("coach_messages").insert({
+        conversation_id: convId,
+        role: "assistant",
+        content: "fake",
+      });
+      expect(error).not.toBeNull();
+    });
+
+    it("messages are append-only, even for their owner", async () => {
+      expect(
+        (
+          await A.from("coach_messages")
+            .update({ display_text: "edited" })
+            .eq("conversation_id", convId)
+            .select()
+        ).error,
+      ).not.toBeNull();
     });
   });
 

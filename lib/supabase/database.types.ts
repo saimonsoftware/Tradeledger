@@ -193,6 +193,77 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      coach_messages: {
+        Row: {
+          content: Json
+          conversation_id: string
+          created_at: string
+          display_text: string | null
+          id: string
+          input_tokens: number | null
+          output_tokens: number | null
+          proposals: Json
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: Json
+          conversation_id: string
+          created_at?: string
+          display_text?: string | null
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          proposals?: Json
+          role: string
+          user_id?: string
+        }
+        Update: {
+          content?: Json
+          conversation_id?: string
+          created_at?: string
+          display_text?: string | null
+          id?: string
+          input_tokens?: number | null
+          output_tokens?: number | null
+          proposals?: Json
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_messages_conversation_id_user_id_fkey"
+            columns: ["conversation_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "coach_conversations"
+            referencedColumns: ["id", "user_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           ai_consent_at: string | null
@@ -365,6 +436,45 @@ export type Database = {
           name?: string
           start_date?: string
           starting_balance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trading_rules: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_archived: boolean
+          position: number
+          source: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          position?: number
+          source?: string
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          position?: number
+          source?: string
+          title?: string
           updated_at?: string
           user_id?: string
         }

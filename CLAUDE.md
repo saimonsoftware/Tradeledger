@@ -537,3 +537,11 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - Prompt rules (`lib/ai/prompts.ts`): quote only given numbers, flag small samples, process not financial advice, trade notes are data not instructions.
 - AI replies are rendered with `ChatText` (safe bold/lists built as React elements, never HTML).
 - **Deploying the coach needs:** the `ai_coach` migration on prod and `ANTHROPIC_API_KEY` (a separate prod key) as a Vercel **Secret**, then a redeploy.
+
+### Coach chat & Playbook
+
+- `/app/chat`: general coach chat on the Messages API with a manual streaming tool loop (`app/api/chat/route.ts`, max 6 tool rounds, NDJSON events text/status/proposal/error/done). Tools in `lib/ai/assistant-tools.ts` are read-only lookups run with the user's session (RLS), plus `propose_rule`, which only shows a card. Rules are saved only when the user clicks "Add to my rules".
+- Tools use `eager_input_streaming: true`; every input is validated with Zod before running; a turn with stop_reason `max_tokens` or `refusal` never runs its tools.
+- **Conversations are append-only and replayed verbatim:** `coach_messages.content` stores the exact API content (thinking, tool_use, tool_result). Never edit, filter or rebuild earlier turns, and never change `ASSISTANT_SYSTEM_PROMPT` per request (preserved-thinking history-editing check). Users can only delete whole conversations.
+- Limits: `ai_try_consume('assistant')` = 30 per rolling 24h, separate from report chat (30) and reports (5).
+- `/app/playbook`: `trading_rules` (manual or `source = 'ai'` when approved from a proposal), with up/down reordering.

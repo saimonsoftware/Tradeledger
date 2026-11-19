@@ -12,6 +12,8 @@ const TITLES: [prefix: string, title: string][] = [
   ["/app/accounts", "Accounts"],
   ["/app/trades", "Trades"],
   ["/app/coach", "AI Coach"],
+  ["/app/chat", "Coach chat"],
+  ["/app/playbook", "Playbook"],
   ["/app/settings", "Settings"],
 ];
 

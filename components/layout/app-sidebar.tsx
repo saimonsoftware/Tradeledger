@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LineChart,
   NotebookTabs,
+  MessagesSquare,
   Settings,
   Sparkles,
   Wallet,
@@ -38,13 +39,14 @@ const MAIN: NavItem[] = [
   { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/trades", label: "Trades", icon: BookOpen },
   { href: "/app/coach", label: "AI Coach", icon: Sparkles },
+  { href: "/app/chat", label: "Coach chat", icon: MessagesSquare },
+  { href: "/app/playbook", label: "Playbook", icon: NotebookTabs },
   { href: "/app/accounts", label: "Accounts", icon: Wallet },
 ];
 
 const SOON: NavItem[] = [
   { href: "#", label: "Analytics", icon: LineChart },
   { href: "#", label: "Calendar", icon: CalendarDays },
-  { href: "#", label: "Playbook", icon: NotebookTabs },
 ];
 
 /** Main nav + settings. Reads the URL (for the active highlight), so it's
