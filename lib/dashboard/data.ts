@@ -9,6 +9,7 @@ import {
   startOfLocalDay,
   weekRange,
 } from "@/lib/calculations/week";
+import { buildEquityCurve, daysBetween } from "@/lib/calculations/equity";
 import { getProfile } from "@/lib/profile/data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,12 +19,32 @@ const fromCents = (c: number) => c / 100;
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
 
+export const EQUITY_RANGES = { "30": 30, "90": 90, "365": 365, all: null } as const;
+export type EquityRange = keyof typeof EQUITY_RANGES;
+
+const PAGE = 1000; // Supabase returns at most 1,000 rows per request.
+
+/** Loads every row of a query, page by page (all-time charts can exceed 1,000 trades). */
+async function fetchAll<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) throw new Error("Could not load dashboard");
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
 export async function getDashboardData({
   chartWeekOffset = 0,
   chartCurrency,
+  equityRange = "all",
 }: {
   chartWeekOffset?: number;
   chartCurrency?: string;
+  equityRange?: EquityRange;
 }) {
   await requireUser();
   const [{ timezone, defaultCurrency }, accounts] = await Promise.all([
@@ -160,6 +181,65 @@ export async function getDashboardData({
     };
   });
 
+  // ---------------- Equity curve: balance per day, same currency as the chart ----------------
+  const eqAccounts = accounts.filter((a) => a.currency === chosenCurrency);
+  const today = lastNDays(now, timezone, 1)[0];
+  const earliest = eqAccounts.map((a) => a.start_date).sort()[0] ?? today;
+  const rangeDays = EQUITY_RANGES[equityRange];
+  let eqFrom = rangeDays ? lastNDays(now, timezone, rangeDays)[0] : earliest;
+  if (eqFrom < earliest) eqFrom = earliest;
+  // Balance(d) = current − changes after d, so only changes from the first day are needed.
+  const eqSince = startOfLocalDay(eqFrom, timezone).toISOString();
+  const eqIds = eqAccounts.map((a) => a.id);
+  const [eqTrades, eqFlows] = eqIds.length
+    ? await Promise.all([
+        fetchAll((from, to) =>
+          supabase
+            .from("trades")
+            .select("account_id, net_pnl, exit_time")
+            .eq("status", "closed")
+            .gte("exit_time", eqSince)
+            .in("account_id", eqIds)
+            .order("exit_time")
+            .order("id")
+            .range(from, to),
+        ),
+        fetchAll((from, to) =>
+          supabase
+            .from("account_transactions")
+            .select("account_id, type, amount, occurred_at")
+            .gte("occurred_at", eqSince)
+            .in("account_id", eqIds)
+            .order("occurred_at")
+            .order("id")
+            .range(from, to),
+        ),
+      ])
+    : [[], []];
+  const curve = buildEquityCurve(
+    eqFrom <= today ? daysBetween(eqFrom, today) : [],
+    eqAccounts.map((a) => ({
+      currentCents: cents(a.balance.current_balance),
+      startDate: a.start_date,
+      changes: [
+        ...eqTrades
+          .filter((t) => t.account_id === a.id)
+          .map((t) => ({
+            day: localDateKey(t.exit_time!, timezone),
+            cents: cents(t.net_pnl),
+            kind: "trade" as const,
+          })),
+        ...eqFlows
+          .filter((x) => x.account_id === a.id)
+          .map((x) => ({
+            day: localDateKey(x.occurred_at, timezone),
+            cents: (x.type === "deposit" ? 1 : -1) * cents(x.amount),
+            kind: "flow" as const,
+          })),
+      ],
+    })),
+  );
+
   return {
     timezone,
     hasAccounts: accounts.length > 0,
@@ -179,5 +259,18 @@ export async function getDashboardData({
       total: fromCents(chartTrades.reduce((s, t) => s + cents(t.net_pnl), 0)),
     },
     recent: recentRes.data ?? [],
+    equity: {
+      range: equityRange,
+      currency: chosenCurrency,
+      points: curve.points.map((p) => ({
+        day: p.day,
+        balance: fromCents(p.balanceCents),
+        pnl: fromCents(p.pnlCents),
+        trades: p.trades,
+        flow: fromCents(p.flowCents),
+      })),
+      pnl: fromCents(curve.pnlCents),
+      maxDrawdown: fromCents(curve.maxDrawdownCents),
+    },
   };
 }

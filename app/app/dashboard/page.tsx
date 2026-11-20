@@ -8,10 +8,16 @@ import { AccountTypeBadge } from "@/components/accounts/account-type-badge";
 import { AddAccountButton } from "@/components/accounts/add-account-button";
 import { SignedAmount } from "@/components/common/signed-amount";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { EquityChart, EquityTable } from "@/components/dashboard/equity-chart";
 import { WeeklyPnlChart, WeeklyPnlTable } from "@/components/dashboard/weekly-pnl-chart";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDashboardData, type DashboardData } from "@/lib/dashboard/data";
+import {
+  EQUITY_RANGES,
+  getDashboardData,
+  type DashboardData,
+  type EquityRange,
+} from "@/lib/dashboard/data";
 import { formatCurrency } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 
@@ -88,23 +94,144 @@ function SummaryCards({ data }: { data: DashboardData }) {
   );
 }
 
+/** Dashboard URL keeping the current week / currency / equity range, with overrides. */
+function dashboardHref(
+  data: DashboardData,
+  o: { week?: "prev" | undefined; currency?: string; range?: EquityRange },
+) {
+  const week = "week" in o ? o.week : data.chart.offset === -1 ? "prev" : undefined;
+  const currency = o.currency ?? data.chart.currency;
+  const range = o.range ?? data.equity.range;
+  const p = new URLSearchParams();
+  if (week) p.set("week", week);
+  if (data.chart.currencies.length > 1) p.set("currency", currency);
+  if (range !== "all") p.set("range", range);
+  const qs = p.toString();
+  return qs ? `/app/dashboard?${qs}` : "/app/dashboard";
+}
+
+const seg = (active: boolean) =>
+  cn(
+    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+    active
+      ? "bg-background text-foreground shadow-sm"
+      : "text-muted-foreground hover:text-foreground",
+  );
+
+const RANGE_LABELS: Record<EquityRange, string> = {
+  "30": "30D",
+  "90": "90D",
+  "365": "1Y",
+  all: "All",
+};
+
+function EquityCard({ data }: { data: DashboardData }) {
+  const { equity, chart } = data;
+  return (
+    <section aria-labelledby="equity-title" className="rounded-2xl surface p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 id="equity-title" className="font-semibold">
+            Equity curve
+          </h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Balance at the end of each day
+            {chart.currencies.length > 1 && ` · ${equity.currency} accounts`}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {chart.currencies.length > 1 && (
+            <nav aria-label="Equity currency" className="inline-flex gap-1 rounded-lg bg-muted p-1">
+              {chart.currencies.map((c) => (
+                <Link
+                  key={c}
+                  href={dashboardHref(data, { currency: c })}
+                  className={seg(c === equity.currency)}
+                  aria-current={c === equity.currency ? "page" : undefined}
+                >
+                  {c}
+                </Link>
+              ))}
+            </nav>
+          )}
+          <nav aria-label="Equity period" className="inline-flex gap-1 rounded-lg bg-muted p-1">
+            {(Object.keys(RANGE_LABELS) as EquityRange[]).map((r) => (
+              <Link
+                key={r}
+                href={dashboardHref(data, { range: r })}
+                className={seg(r === equity.range)}
+                aria-current={r === equity.range ? "page" : undefined}
+              >
+                {RANGE_LABELS[r]}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-muted-foreground">Balance now</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {equity.points.length
+              ? formatCurrency(equity.points[equity.points.length - 1].balance, equity.currency)
+              : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Trade P&amp;L in period</dt>
+          <dd className="mt-0.5 font-semibold">
+            <SignedAmount value={equity.pnl} currency={equity.currency} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Max drawdown</dt>
+          <dd className="mt-0.5 font-semibold tabular-nums">
+            {equity.maxDrawdown > 0 ? (
+              <span className="text-loss">
+                {"\u2212"}
+                {formatCurrency(equity.maxDrawdown, equity.currency)}
+              </span>
+            ) : (
+              formatCurrency(0, equity.currency)
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-4">
+        {equity.points.length > 1 ? (
+          <EquityChart points={equity.points} currency={equity.currency} />
+        ) : (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Not enough history yet. Your curve appears after your first day of trading.
+          </p>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        P&amp;L and drawdown count trades only; deposits and withdrawals move the balance but
+        aren&apos;t counted as gains or losses.
+      </p>
+
+      {equity.points.length > 1 && (
+        <details className="group mt-3 border-t pt-3">
+          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+            Show as table
+          </summary>
+          <div className="mt-2">
+            <EquityTable points={equity.points} currency={equity.currency} />
+          </div>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function ChartCard({ data }: { data: DashboardData }) {
   const { chart } = data;
   const isPrev = chart.offset === -1;
-  const href = (week: "prev" | undefined, currency = chart.currency) => {
-    const p = new URLSearchParams();
-    if (week) p.set("week", week);
-    if (chart.currencies.length > 1) p.set("currency", currency);
-    const qs = p.toString();
-    return qs ? `/app/dashboard?${qs}` : "/app/dashboard";
-  };
-  const seg = (active: boolean) =>
-    cn(
-      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-      active
-        ? "bg-background text-foreground shadow-sm"
-        : "text-muted-foreground hover:text-foreground",
-    );
+  const href = (week: "prev" | undefined, currency = chart.currency) =>
+    dashboardHref(data, { week, currency });
 
   return (
     <section aria-labelledby="chart-title" className="rounded-2xl surface p-5">
@@ -339,6 +466,8 @@ async function Dashboard({
   const data = await getDashboardData({
     chartWeekOffset: sp.week === "prev" ? -1 : 0,
     chartCurrency: typeof sp.currency === "string" ? sp.currency : undefined,
+    equityRange:
+      typeof sp.range === "string" && sp.range in EQUITY_RANGES ? (sp.range as EquityRange) : "all",
   });
 
   if (!data.hasAccounts) {
@@ -369,7 +498,10 @@ async function Dashboard({
           }
         />
       ) : (
-        <ChartCard data={data} />
+        <>
+          <ChartCard data={data} />
+          <EquityCard data={data} />
+        </>
       )}
       <AccountsGrid data={data} />
       {data.totalTrades > 0 && <RecentTrades data={data} />}
