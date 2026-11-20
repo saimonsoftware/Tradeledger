@@ -138,11 +138,12 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   // Dashboard: this week's P&L, the chart and recent trades show it
   await page.goto("/app/dashboard?currency=USD");
   await expect(page.getByRole("heading", { name: "Daily P&L" })).toBeVisible();
-  // Equity curve: balance now = 10,000 + 123
+  // Equity curve card (its table is for screen readers): latest balance = 10,000 + 123
   const equity = page.locator("section", {
     has: page.getByRole("heading", { name: "Equity curve" }),
   });
-  await expect(equity).toContainText("US$10,123.00");
+  await expect(equity.locator(".recharts-area-curve")).toBeVisible();
+  await expect(equity.getByRole("table")).toContainText("US$10,123.00");
   const recent = page.locator("section", {
     has: page.getByRole("heading", { name: "Recent trades" }),
   });

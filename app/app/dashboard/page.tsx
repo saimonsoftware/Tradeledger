@@ -134,10 +134,9 @@ function EquityCard({ data }: { data: DashboardData }) {
           <h2 id="equity-title" className="font-semibold">
             Equity curve
           </h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Balance at the end of each day
-            {chart.currencies.length > 1 && ` · ${equity.currency} accounts`}
-          </p>
+          {chart.currencies.length > 1 && (
+            <p className="mt-0.5 text-sm text-muted-foreground">{equity.currency} accounts</p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {chart.currencies.length > 1 && (
@@ -169,36 +168,6 @@ function EquityCard({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-xs text-muted-foreground">Balance now</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums">
-            {equity.points.length
-              ? formatCurrency(equity.points[equity.points.length - 1].balance, equity.currency)
-              : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Trade P&amp;L in period</dt>
-          <dd className="mt-0.5 font-semibold">
-            <SignedAmount value={equity.pnl} currency={equity.currency} />
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Max drawdown</dt>
-          <dd className="mt-0.5 font-semibold tabular-nums">
-            {equity.maxDrawdown > 0 ? (
-              <span className="text-loss">
-                {"\u2212"}
-                {formatCurrency(equity.maxDrawdown, equity.currency)}
-              </span>
-            ) : (
-              formatCurrency(0, equity.currency)
-            )}
-          </dd>
-        </div>
-      </dl>
-
       <div className="mt-4">
         {equity.points.length > 1 ? (
           <EquityChart points={equity.points} currency={equity.currency} />
@@ -208,20 +177,11 @@ function EquityCard({ data }: { data: DashboardData }) {
           </p>
         )}
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        P&amp;L and drawdown count trades only; deposits and withdrawals move the balance but
-        aren&apos;t counted as gains or losses.
-      </p>
-
+      {/* The same data as a table, for screen readers. */}
       {equity.points.length > 1 && (
-        <details className="group mt-3 border-t pt-3">
-          <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-            Show as table
-          </summary>
-          <div className="mt-2">
-            <EquityTable points={equity.points} currency={equity.currency} />
-          </div>
-        </details>
+        <div className="sr-only">
+          <EquityTable points={equity.points} currency={equity.currency} />
+        </div>
       )}
     </section>
   );

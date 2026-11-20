@@ -269,8 +269,6 @@ export async function getDashboardData({
         trades: p.trades,
         flow: fromCents(p.flowCents),
       })),
-      pnl: fromCents(curve.pnlCents),
-      maxDrawdown: fromCents(curve.maxDrawdownCents),
     },
   };
 }

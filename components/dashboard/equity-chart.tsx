@@ -89,7 +89,7 @@ export function EquityChart({ points, currency }: { points: EquityPoint[]; curre
   const longRange = points.length > 400;
 
   return (
-    <div className="h-56 w-full sm:h-64">
+    <div className="h-56 w-full equity-glow sm:h-64">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={points}
@@ -100,8 +100,8 @@ export function EquityChart({ points, currency }: { points: EquityPoint[]; curre
         >
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.22} />
-              <stop offset="100%" stopColor="var(--primary)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--foreground)" stopOpacity={0.14} />
+              <stop offset="100%" stopColor="var(--foreground)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke="var(--border)" strokeWidth={1} />
@@ -134,11 +134,12 @@ export function EquityChart({ points, currency }: { points: EquityPoint[]; curre
           <Area
             type="linear"
             dataKey="balance"
-            stroke="var(--primary)"
+            // Colour and glow come from the `equity-glow` utility (globals.css).
+            stroke="var(--foreground)"
             strokeWidth={2}
             fill={`url(#${gradientId})`}
             dot={false}
-            activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--primary)" }}
+            activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--foreground)" }}
             isAnimationActive={false}
           />
         </AreaChart>
@@ -147,16 +148,16 @@ export function EquityChart({ points, currency }: { points: EquityPoint[]; curre
   );
 }
 
-/** Table view: the start, every day with a trade or deposit/withdrawal, and today. */
+/** Table view (screen readers): the start, every day with a trade or deposit/withdrawal, and today. */
 export function EquityTable({ points, currency }: { points: EquityPoint[]; currency: string }) {
   const rows = points.filter(
     (p, i) => i === 0 || i === points.length - 1 || p.trades > 0 || p.flow !== 0,
   );
   return (
-    <div className="max-h-72 overflow-y-auto">
+    <div>
       <table className="w-full text-sm">
         <caption className="sr-only">Balance at the end of each day</caption>
-        <thead className="sticky top-0 bg-card text-left text-xs text-muted-foreground">
+        <thead className="text-left text-xs text-muted-foreground">
           <tr>
             <th scope="col" className="py-1.5 font-medium">
               Day
