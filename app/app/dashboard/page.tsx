@@ -445,11 +445,13 @@ async function Dashboard({
   return (
     <div className="space-y-6">
       <SummaryCards data={data} />
+      {/* Shown from the first account: a flat line at the balance until trades come in. */}
+      <EquityCard data={data} />
       {data.totalTrades === 0 ? (
         <EmptyState
           icon={BookOpen}
           title="Log your first trade"
-          body="Record your entry, exit and profit or loss. Your daily P&L chart and stats fill in automatically."
+          body="Record your entry, SL and TP prices and your profit or loss. Your equity curve, daily P&L chart and stats fill in automatically."
           action={
             <Button asChild variant="contrast" className="h-10 px-4">
               <Link href="/app/trades/new">
@@ -461,8 +463,6 @@ async function Dashboard({
       ) : (
         <ChartCard data={data} />
       )}
-      {/* Shown from the first account: a flat line at the balance until trades come in. */}
-      <EquityCard data={data} />
       <AccountsGrid data={data} />
       {data.totalTrades > 0 && <RecentTrades data={data} />}
     </div>
@@ -477,6 +477,8 @@ function DashboardSkeleton() {
           <Skeleton key={i} className="h-28 rounded-2xl" />
         ))}
       </div>
+      {/* Equity curve, then the daily P&L chart. */}
+      <Skeleton className="h-80 rounded-2xl" />
       <Skeleton className="h-80 rounded-2xl" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {[0, 1, 2].map((i) => (
