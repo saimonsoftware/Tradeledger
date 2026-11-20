@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { PostLoginIntro } from "@/components/brand/post-login-intro";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { EdgeSwipe } from "@/components/layout/edge-swipe";
 import { TopBar } from "@/components/layout/top-bar";
 import { UserMenu } from "@/components/layout/user-menu";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -21,6 +22,8 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
       <PostLoginIntro />
       <SidebarProvider>
         <AppSidebar />
+        {/* Swipe from the left edge opens the sidebar instead of going back a page. */}
+        <EdgeSwipe />
         <SidebarInset className="min-w-0">
           <TopBar
             userMenu={
