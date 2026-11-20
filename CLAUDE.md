@@ -551,6 +551,8 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 
 - `app/manifest.ts` (standalone, opens at `/app/dashboard`), `app/apple-icon.png`, `public/icons/*` (192/512 + maskable). No offline mode / service worker.
 - `viewportFit: "cover"`: the body pads `env(safe-area-inset-*)`; `fixed` elements (sheets) and sticky bottom bars must add `env(safe-area-inset-bottom)` themselves.
+- **Launch animation** (home-screen app only, once per launch): `LAUNCH_SCRIPT` in the root `<head>` adds `tl-launch` to `<html>` before first paint when standalone + not yet shown this session (sessionStorage `tl-launched`); `<LaunchSplash>` markup is always rendered but hidden; pure CSS animation in globals.css (tile → candles rise → glowing name → fade, ~1.8s; Reduce Motion = short fade). iOS start screens: plain black PNGs in `public/splash/` for 9 iPhone sizes (`SPLASH_SIZES` in app/layout.tsx). Test by faking `navigator.standalone = true`.
+- **Production builds can also serve stale CSS**: if a new globals.css rule is missing from `.next/static`, `rm -rf .next` and rebuild.
 - Form controls must be ≥16px on mobile (`text-base md:text-sm`), or iOS zooms in on focus. This includes native `<select>`s.
 
 ### Simple trades & screenshots (replaces parts of spec 5.6)

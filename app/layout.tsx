@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { LAUNCH_SCRIPT, LaunchSplash } from "@/components/brand/launch-splash";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/site";
 import "./globals.css";
@@ -9,6 +10,19 @@ import "./globals.css";
 // Tailwind's `font-sans` / `font-mono` utilities.
 const geistSans = Geist({ variable: "--font-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+
+/** iPhone screens [css width, css height, pixel ratio], portrait. Images in public/splash. */
+const SPLASH_SIZES = [
+  [440, 956, 3],
+  [402, 874, 3],
+  [430, 932, 3],
+  [393, 852, 3],
+  [428, 926, 3],
+  [390, 844, 3],
+  [375, 812, 3],
+  [414, 896, 2],
+  [375, 667, 2],
+] as const;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -33,7 +47,17 @@ export const metadata: Metadata = {
     description: siteConfig.description,
   },
   // iPhone "Add to Home Screen": open full-screen with our name and icon.
-  appleWebApp: { capable: true, title: siteConfig.name, statusBarStyle: "default" },
+  appleWebApp: {
+    capable: true,
+    title: siteConfig.name,
+    statusBarStyle: "default",
+    // Start screens shown while the home-screen app loads: plain black (the app's
+    // theme), then the animated launch splash takes over. One per iPhone screen size.
+    startupImage: SPLASH_SIZES.map(([w, h, r]) => ({
+      url: `/splash/splash-${w * r}x${h * r}.png`,
+      media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`,
+    })),
+  },
   formatDetection: { telephone: false },
 };
 
@@ -56,8 +80,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Decides before the first paint whether to play the launch animation
+            (home-screen app only). Static script; see launch-splash.tsx. */}
+        <script dangerouslySetInnerHTML={{ __html: LAUNCH_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+          <LaunchSplash />
           {children}
         </ThemeProvider>
       </body>
