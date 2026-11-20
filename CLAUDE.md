@@ -544,6 +544,7 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - Tools use `eager_input_streaming: true`; every input is validated with Zod before running; a turn with stop_reason `max_tokens` or `refusal` never runs its tools.
 - **Conversations are append-only and replayed verbatim:** `coach_messages.content` stores the exact API content (thinking, tool_use, tool_result). Never edit, filter or rebuild earlier turns, and never change `ASSISTANT_SYSTEM_PROMPT` per request (preserved-thinking history-editing check). Users can only delete whole conversations.
 - Limits: `ai_try_consume('assistant')` = 30 per rolling 24h, separate from report chat (30) and reports (5).
+- `/app/chat` is **full screen**: the chat root cancels the content padding (`-mx-4 -my-6 sm:-mx-6 sm:-my-8`) and is `100dvh − 3.5rem (top bar) − safe-area` tall; conversations are a full-height column on desktop and a left Sheet ("Chats") on phones. Scrollable areas have `tabIndex={0}` (axe `scrollable-region-focusable`).
 - `/app/playbook`: `trading_rules` (manual or `source = 'ai'` when approved from a proposal), with up/down reordering.
 
 ### Mobile web app (installable)
