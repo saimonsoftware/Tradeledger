@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { requirePasswordSession, requireUser } from "@/lib/auth/dal";
+import { queueIntro } from "@/lib/auth/intro";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 import { createClient } from "@/lib/supabase/server";
 import { totpCodeSchema } from "@/lib/validation/mfa";
@@ -34,6 +35,7 @@ export async function verifyLoginCode(code: string, next?: string): Promise<Resu
       error: error.status === 429 ? "Too many attempts. Please wait a minute." : BAD_CODE,
     };
 
+  await queueIntro();
   redirect(safeRedirectPath(next));
 }
 

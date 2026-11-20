@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { queueIntro } from "@/lib/auth/intro";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,5 +34,7 @@ export async function GET(request: NextRequest) {
   }
   // A password-reset link must always go to the reset form.
   const destination = type === "recovery" ? "/reset-password" : next;
+  // Signed in by a confirmation link: play the launch intro as the app opens.
+  if (type !== "recovery") await queueIntro();
   return NextResponse.redirect(new URL(destination, origin));
 }

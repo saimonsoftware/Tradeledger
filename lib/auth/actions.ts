@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/dal";
+import { queueIntro } from "@/lib/auth/intro";
 import { safeRedirectPath } from "@/lib/auth/redirect";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -100,6 +101,9 @@ export async function logIn(input: LogInInput, captchaToken?: string): Promise<A
     return { ok: false, error: INVALID_LOGIN };
   }
 
+  // Play the launch intro when the app opens (after the 2FA code, if there is one).
+  await queueIntro();
+
   // Accounts with 2FA must also enter an authenticator code.
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
@@ -167,5 +171,6 @@ export async function updatePassword(input: ResetPasswordInput): Promise<ActionR
 
   // Sign out every OTHER device, in case the old password was compromised.
   await supabase.auth.signOut({ scope: "others" });
+  await queueIntro();
   redirect("/app/dashboard");
 }

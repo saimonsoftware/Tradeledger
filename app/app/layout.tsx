@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { PostLoginIntro } from "@/components/brand/post-login-intro";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -17,6 +18,7 @@ async function CurrentUserMenu() {
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
     <TooltipProvider>
+      <PostLoginIntro />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset className="min-w-0">

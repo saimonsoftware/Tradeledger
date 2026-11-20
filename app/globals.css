@@ -415,3 +415,106 @@
     }
   }
 }
+
+/* ---------- Page switches (components/layout/page-transition.tsx) ----------
+   The old page fades out quickly; the new one rises in gently. Only the page
+   content animates: the rest of the screen (top bar, sidebar) stays still. */
+::view-transition {
+  pointer-events: none; /* clicks during the animation reach the live page */
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(.page-exit) {
+  animation: 120ms ease-in both page-out;
+}
+::view-transition-new(.page-enter) {
+  animation: 280ms cubic-bezier(0.2, 0.8, 0.2, 1) 60ms both page-in;
+}
+@keyframes page-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    filter: blur(3px);
+  }
+}
+
+/* ---------- Loading line (components/layout/nav-progress.tsx) ---------- */
+.nav-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  height: 2px;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: left;
+  opacity: 0;
+  background: var(--foreground);
+  box-shadow:
+    0 0 6px color-mix(in oklab, var(--foreground) 50%, transparent),
+    0 0 14px color-mix(in oklab, var(--foreground) 25%, transparent);
+}
+.dark .nav-progress {
+  box-shadow:
+    0 0 6px oklch(1 0 0 / 0.9),
+    0 0 16px oklch(1 0 0 / 0.5);
+}
+/* Creeps towards 85% while waiting... */
+.nav-progress[data-state="loading"] {
+  opacity: 1;
+  transform: scaleX(0.85);
+  transition:
+    transform 8s cubic-bezier(0.1, 0.8, 0.2, 1),
+    opacity 0.15s ease;
+}
+/* ...then completes and fades away when the page arrives. */
+.nav-progress[data-state="done"] {
+  opacity: 0;
+  transform: scaleX(1);
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.3s ease 0.15s;
+}
+
+/* ---------- Loading placeholders: a soft moving shimmer ---------- */
+@utility skeleton-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--muted) 30%,
+    color-mix(in oklab, var(--muted), var(--foreground) 7%) 50%,
+    var(--muted) 70%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  .nav-progress[data-state="loading"] {
+    transition: opacity 0.15s ease;
+  }
+  .skeleton-shimmer {
+    animation: none;
+  }
+}
