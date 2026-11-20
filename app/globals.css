@@ -388,6 +388,18 @@
     visibility: hidden;
   }
 }
+/* Desktop app windows: a larger mark and name. */
+@media (min-width: 768px) {
+  .launch-tile {
+    width: 120px;
+    height: 120px;
+    border-radius: 30px;
+  }
+  .launch-name {
+    margin-top: 26px;
+    font-size: 1.875rem;
+  }
+}
 /* Reduce Motion: no movement, just a short, gentle fade. */
 @media (prefers-reduced-motion: reduce) {
   .tl-launch .launch-splash * {
