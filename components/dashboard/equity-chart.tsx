@@ -26,7 +26,8 @@ function moneyTicks(currency: string, max: number) {
   const fmt = new Intl.NumberFormat("en-IE", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    // Compact ("US$10.5K") keeps one decimal so nearby ticks never read the same.
+    maximumFractionDigits: max >= 10_000 ? 1 : 0,
     notation: max >= 10_000 ? "compact" : "standard",
   });
   return (v: number) => fmt.format(v).replace("-", "−");
@@ -68,7 +69,14 @@ function EquityTooltip({
  * with the axis running from one tick to the next so nothing is cut off.
  */
 export function niceTicks(min: number, max: number, target = 4): number[] {
-  const span = max - min || Math.abs(max) * 0.1 || 1;
+  if (min === max) {
+    // Flat line: centre it between three round ticks (e.g. 9.5K / 10K / 10.5K).
+    const half = Math.abs(max) * 0.05 || 1;
+    min -= half;
+    max += half;
+    target = 2;
+  }
+  const span = max - min;
   const raw = span / target;
   const pow = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((st) => span / st <= target) ?? 10 * pow;
@@ -80,8 +88,17 @@ export function niceTicks(min: number, max: number, target = 4): number[] {
 }
 
 /** Balance at the end of each day: one series, so no legend (the card title names it). */
-export function EquityChart({ points, currency }: { points: EquityPoint[]; currency: string }) {
+export function EquityChart({
+  points: input,
+  currency,
+}: {
+  points: EquityPoint[];
+  currency: string;
+}) {
   const gradientId = useId();
+  // A single day (account started today): draw it as a flat line across the chart.
+  const single = input.length === 1;
+  const points = single ? [input[0], { ...input[0] }] : input;
   const values = points.map((p) => p.balance);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -110,7 +127,10 @@ export function EquityChart({ points, currency }: { points: EquityPoint[]; curre
             tickLine={false}
             axisLine={false}
             tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-            tickFormatter={(d: string) => format(parseISO(d), longRange ? "MMM yy" : "d MMM")}
+            tickFormatter={(d: string) =>
+              single ? "Today" : format(parseISO(d), longRange ? "MMM yy" : "d MMM")
+            }
+            ticks={single ? [points[0].day] : undefined}
             minTickGap={28}
             interval="preserveStartEnd"
           />

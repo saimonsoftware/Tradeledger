@@ -169,16 +169,17 @@ function EquityCard({ data }: { data: DashboardData }) {
       </div>
 
       <div className="mt-4">
-        {equity.points.length > 1 ? (
+        {equity.points.length > 0 ? (
           <EquityChart points={equity.points} currency={equity.currency} />
         ) : (
           <p className="py-10 text-center text-sm text-muted-foreground">
-            Not enough history yet. Your curve appears after your first day of trading.
+            Your curve starts on your account&apos;s start date.
           </p>
         )}
       </div>
+
       {/* The same data as a table, for screen readers. */}
-      {equity.points.length > 1 && (
+      {equity.points.length > 0 && (
         <div className="sr-only">
           <EquityTable points={equity.points} currency={equity.currency} />
         </div>
@@ -458,11 +459,10 @@ async function Dashboard({
           }
         />
       ) : (
-        <>
-          <ChartCard data={data} />
-          <EquityCard data={data} />
-        </>
+        <ChartCard data={data} />
       )}
+      {/* Shown from the first account: a flat line at the balance until trades come in. */}
+      <EquityCard data={data} />
       <AccountsGrid data={data} />
       {data.totalTrades > 0 && <RecentTrades data={data} />}
     </div>

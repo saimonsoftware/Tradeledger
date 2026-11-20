@@ -89,6 +89,16 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(page).toHaveURL(/\/app\/accounts\/[0-9a-f-]{36}$/);
   const accountUrl = page.url();
 
+  // Before any trades, the dashboard already shows the equity curve as a flat line.
+  await page.goto("/app/dashboard?currency=USD");
+  await expect(
+    page
+      .locator("section", { has: page.getByRole("heading", { name: "Equity curve" }) })
+      .locator(".recharts-area-curve"),
+    // A flat line is 0px tall, which Playwright counts as "not visible": check it's drawn.
+  ).toHaveCount(1);
+  await page.goto(accountUrl);
+
   // Log a closed trade via the quick-add sheet (entry/exit today, in the user's timezone)
   await page.getByRole("button", { name: "Log trade" }).click();
   const sheet = page.getByRole("dialog");
@@ -138,12 +148,12 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   // Dashboard: this week's P&L, the chart and recent trades show it
   await page.goto("/app/dashboard?currency=USD");
   await expect(page.getByRole("heading", { name: "Daily P&L" })).toBeVisible();
-  // Equity curve card: this account started today, so there's one day of history
-  // (the curve itself is covered by the unit tests in tests/unit/equity.test.ts).
+  // Equity curve card: this account started today, so it's a flat line for today.
   const equity = page.locator("section", {
     has: page.getByRole("heading", { name: "Equity curve" }),
   });
-  await expect(equity).toContainText("Not enough history yet");
+  await expect(equity.locator(".recharts-area-curve")).toHaveCount(1);
+  await expect(equity.getByRole("table")).toContainText("US$10,123.00");
   const recent = page.locator("section", {
     has: page.getByRole("heading", { name: "Recent trades" }),
   });

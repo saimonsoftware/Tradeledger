@@ -70,9 +70,11 @@ describe("niceTicks (evenly spaced axis values)", () => {
     const { niceTicks } = await import("@/components/dashboard/equity-chart");
     expect(niceTicks(9200, 12700)).toEqual([9000, 10000, 11000, 12000, 13000]);
     expect(niceTicks(10000, 10123)).toEqual([10000, 10050, 10100, 10150]);
-    const flat = niceTicks(5000, 5000);
-    expect(flat.length).toBeGreaterThanOrEqual(2);
-    expect(flat[0]).toBeLessThanOrEqual(5000);
-    expect(flat[flat.length - 1]).toBeGreaterThanOrEqual(5000);
+    // A flat line sits in the middle, between distinct ticks.
+    const flat = niceTicks(10000, 10000);
+    expect(flat).toEqual([9500, 10000, 10500]);
+    expect(new Set(flat).size).toBe(flat.length);
+    expect(flat[0]).toBeLessThan(10000);
+    expect(flat[flat.length - 1]).toBeGreaterThan(10000);
   });
 });

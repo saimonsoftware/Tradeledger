@@ -184,7 +184,10 @@ export async function getDashboardData({
   // ---------------- Equity curve: balance per day, same currency as the chart ----------------
   const eqAccounts = accounts.filter((a) => a.currency === chosenCurrency);
   const today = lastNDays(now, timezone, 1)[0];
-  const earliest = eqAccounts.map((a) => a.start_date).sort()[0] ?? today;
+  // A start date later than "today" in the user's timezone (e.g. an account created
+  // late in the evening, dated by another clock) counts from today.
+  const startOf = (a: { start_date: string }) => (a.start_date > today ? today : a.start_date);
+  const earliest = eqAccounts.map(startOf).sort()[0] ?? today;
   const rangeDays = EQUITY_RANGES[equityRange];
   let eqFrom = rangeDays ? lastNDays(now, timezone, rangeDays)[0] : earliest;
   if (eqFrom < earliest) eqFrom = earliest;
@@ -220,7 +223,7 @@ export async function getDashboardData({
     eqFrom <= today ? daysBetween(eqFrom, today) : [],
     eqAccounts.map((a) => ({
       currentCents: cents(a.balance.current_balance),
-      startDate: a.start_date,
+      startDate: startOf(a),
       changes: [
         ...eqTrades
           .filter((t) => t.account_id === a.id)
