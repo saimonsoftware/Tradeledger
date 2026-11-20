@@ -248,25 +248,6 @@
   }
 }
 
-/* Daily P&L bars glow in their own colour (green / red): soft in light mode,
-   stronger in dark mode, like the equity curve. */
-@utility bar-glow {
-  & .bar-profit {
-    filter: drop-shadow(0 0 4px color-mix(in oklab, var(--chart-profit) 45%, transparent));
-  }
-  & .bar-loss {
-    filter: drop-shadow(0 0 4px color-mix(in oklab, var(--chart-loss) 45%, transparent));
-  }
-  &:where(.dark *) .bar-profit {
-    filter: drop-shadow(0 0 4px color-mix(in oklab, var(--chart-profit) 90%, transparent))
-      drop-shadow(0 0 12px color-mix(in oklab, var(--chart-profit) 55%, transparent));
-  }
-  &:where(.dark *) .bar-loss {
-    filter: drop-shadow(0 0 4px color-mix(in oklab, var(--chart-loss) 90%, transparent))
-      drop-shadow(0 0 12px color-mix(in oklab, var(--chart-loss) 55%, transparent));
-  }
-}
-
 /* Stronger glow for the main hero title (solid white text, dark mode only). */
 @utility hero-glow {
   &:where(.dark *) {

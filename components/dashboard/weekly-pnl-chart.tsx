@@ -77,7 +77,7 @@ export function WeeklyPnlChart({ days, currency }: { days: Day[]; currency: stri
   const maxAbs = Math.max(1, ...data.map((d) => Math.abs(d.pnl)));
 
   return (
-    <div className="h-56 w-full bar-glow sm:h-64">
+    <div className="h-56 w-full sm:h-64">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
@@ -114,12 +114,7 @@ export function WeeklyPnlChart({ days, currency }: { days: Day[]; currency: stri
               radius for negative bars, so losses are rounded at the bottom). */}
           <Bar dataKey="pnl" maxBarSize={24} radius={[4, 4, 0, 0]} isAnimationActive={false}>
             {data.map((d) => (
-              <Cell
-                key={d.day}
-                fill={d.pnl >= 0 ? "var(--chart-profit)" : "var(--chart-loss)"}
-                // Glow colour (see the `bar-glow` utility in globals.css).
-                className={d.pnl >= 0 ? "bar-profit" : "bar-loss"}
-              />
+              <Cell key={d.day} fill={d.pnl >= 0 ? "var(--chart-profit)" : "var(--chart-loss)"} />
             ))}
           </Bar>
         </BarChart>
