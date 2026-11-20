@@ -556,6 +556,7 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **After `rm -rf .next`** (needed when new globals.css rules are missing from a build), the running dev server rebuilds pages on demand: the first e2e run afterwards can fail early (seen in the 2FA test); rerun before investigating.
 - **Production builds can also serve stale CSS**: if a new globals.css rule is missing from `.next/static`, `rm -rf .next` and rebuild.
 - **Edge swipe** (`components/layout/edge-swipe.tsx`, app layout): a touch that starts within 24px of the left edge is cancelled (`preventDefault` on a non-passive touchstart), so iOS's "swipe back" doesn't fire. Moving ≥40px right opens the sidebar instead, and a plain tap is replayed as a click. Android's system Back gesture can't be blocked by a website.
+- **No zoom in the installed app only** (`NO_ZOOM_SCRIPT`, `components/layout/no-zoom.ts`, in the root `<head>`): adds `html.tl-app` (CSS `touch-action: pan-x pan-y`) and cancels Safari `gesture*` events / multi-touch moves. The viewport meta is unchanged, so the browser website keeps zoom (WCAG 1.4.4, axe `meta-viewport`).
 - Form controls must be ≥16px on mobile (`text-base md:text-sm`), or iOS zooms in on focus. This includes native `<select>`s.
 
 ### Simple trades & screenshots (replaces parts of spec 5.6)

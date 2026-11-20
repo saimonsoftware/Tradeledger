@@ -182,6 +182,10 @@
   html {
     @apply font-sans;
   }
+  /* Installed app only (set by NO_ZOOM_SCRIPT): scrolling yes, pinch/double-tap zoom no. */
+  html.tl-app {
+    touch-action: pan-x pan-y;
+  }
 }
 
 /* ---------- Premium surface helpers ---------- */

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { LAUNCH_SCRIPT, LaunchSplash } from "@/components/brand/launch-splash";
+import { NO_ZOOM_SCRIPT } from "@/components/layout/no-zoom";
 import { NavProgress } from "@/components/layout/nav-progress";
 import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/site";
@@ -85,6 +86,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Decides before the first paint whether to play the launch animation
             (once per tab/app launch). Static script; see launch-splash.tsx. */}
         <script dangerouslySetInnerHTML={{ __html: LAUNCH_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: NO_ZOOM_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
