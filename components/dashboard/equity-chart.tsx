@@ -15,6 +15,8 @@ import {
 import { formatCurrency, formatSignedCurrency } from "@/lib/format/currency";
 
 export type EquityPoint = {
+  /** The starting balance (just before the first day shown). */
+  start: boolean;
   day: string;
   balance: number;
   pnl: number;
@@ -46,7 +48,9 @@ function EquityTooltip({
   const p = payload[0].payload;
   return (
     <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-md">
-      <p className="font-medium text-foreground">{format(parseISO(p.day), "EEE d MMM yyyy")}</p>
+      <p className="font-medium text-foreground">
+        {p.start ? "Starting balance" : format(parseISO(p.day), "EEE d MMM yyyy")}
+      </p>
       <p className="mt-1 text-sm font-semibold text-foreground tabular-nums">
         {formatCurrency(p.balance, currency)}
       </p>
@@ -88,17 +92,8 @@ export function niceTicks(min: number, max: number, target = 4): number[] {
 }
 
 /** Balance at the end of each day: one series, so no legend (the card title names it). */
-export function EquityChart({
-  points: input,
-  currency,
-}: {
-  points: EquityPoint[];
-  currency: string;
-}) {
+export function EquityChart({ points, currency }: { points: EquityPoint[]; currency: string }) {
   const gradientId = useId();
-  // A single day (account started today): draw it as a flat line across the chart.
-  const single = input.length === 1;
-  const points = single ? [input[0], { ...input[0] }] : input;
   const values = points.map((p) => p.balance);
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -128,9 +123,10 @@ export function EquityChart({
             axisLine={false}
             tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
             tickFormatter={(d: string) =>
-              single ? "Today" : format(parseISO(d), longRange ? "MMM yy" : "d MMM")
+              d === points[0]?.day && points[0].start
+                ? "Start"
+                : format(parseISO(d), longRange ? "MMM yy" : "d MMM")
             }
-            ticks={single ? [points[0].day] : undefined}
             minTickGap={28}
             interval="preserveStartEnd"
           />
@@ -193,7 +189,9 @@ export function EquityTable({ points, currency }: { points: EquityPoint[]; curre
         <tbody className="divide-y">
           {rows.map((p) => (
             <tr key={p.day}>
-              <td className="py-1.5">{format(parseISO(p.day), "EEE d MMM yyyy")}</td>
+              <td className="py-1.5">
+                {p.start ? "Starting balance" : format(parseISO(p.day), "EEE d MMM yyyy")}
+              </td>
               <td className="py-1.5 text-right tabular-nums">
                 {p.trades ? formatSignedCurrency(p.pnl, currency) : "—"}
                 {p.flow !== 0 && (

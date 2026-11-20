@@ -33,6 +33,11 @@ export type EquityPoint = {
 
 export type EquityCurve = {
   points: EquityPoint[];
+  /**
+   * Balance just BEFORE the first day (before its trades, deposits and withdrawals),
+   * so even a single day draws a line from where it started to where it ended.
+   */
+  startBalanceCents: number;
   /** Trade P&L over the period (deposits/withdrawals excluded). */
   pnlCents: number;
   /**
@@ -82,5 +87,7 @@ export function buildEquityCurve(days: string[], accounts: EquityAccount[]): Equ
     peak = Math.max(peak, cumulative);
     maxDrawdownCents = Math.max(maxDrawdownCents, peak - cumulative);
   }
-  return { points, pnlCents: cumulative, maxDrawdownCents };
+  const first = points[0];
+  const startBalanceCents = first ? first.balanceCents - first.pnlCents - first.flowCents : 0;
+  return { points, startBalanceCents, pnlCents: cumulative, maxDrawdownCents };
 }

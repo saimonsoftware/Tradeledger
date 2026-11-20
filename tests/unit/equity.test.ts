@@ -38,6 +38,20 @@ describe("buildEquityCurve", () => {
     expect(points[2]).toMatchObject({ pnlCents: 0, trades: 0, flowCents: 100_000 });
   });
 
+  it("knows the balance before the first day, so day one draws a line", () => {
+    // Account started today with 10,000 and a +500 trade today → current 10,500.
+    const today: EquityAccount = {
+      currentCents: 1_050_000,
+      startDate: "2026-11-20",
+      changes: [{ day: "2026-11-20", cents: 50_000, kind: "trade" }],
+    };
+    const curve = buildEquityCurve(["2026-11-20"], [today]);
+    expect(curve.startBalanceCents).toBe(1_000_000);
+    expect(curve.points[0].balanceCents).toBe(1_050_000);
+    // Mid-history range: start = balance at the end of the day before.
+    expect(buildEquityCurve(days.slice(2), [account]).startBalanceCents).toBe(1_050_000);
+  });
+
   it("P&L and drawdown ignore deposits and withdrawals", () => {
     const curve = buildEquityCurve(days, [account]);
     expect(curve.pnlCents).toBe(30_000); // +500 − 300 + 100
@@ -61,7 +75,12 @@ describe("buildEquityCurve", () => {
       ],
     };
     expect(buildEquityCurve(days, [up]).maxDrawdownCents).toBe(0);
-    expect(buildEquityCurve([], [up])).toEqual({ points: [], pnlCents: 0, maxDrawdownCents: 0 });
+    expect(buildEquityCurve([], [up])).toEqual({
+      points: [],
+      startBalanceCents: 0,
+      pnlCents: 0,
+      maxDrawdownCents: 0,
+    });
   });
 });
 

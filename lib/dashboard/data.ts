@@ -1,5 +1,7 @@
 import "server-only";
 
+import { format, parseISO, subDays } from "date-fns";
+
 import { listAccounts } from "@/lib/accounts/data";
 import { requireUser } from "@/lib/auth/dal";
 import {
@@ -265,13 +267,29 @@ export async function getDashboardData({
     equity: {
       range: equityRange,
       currency: chosenCurrency,
-      points: curve.points.map((p) => ({
-        day: p.day,
-        balance: fromCents(p.balanceCents),
-        pnl: fromCents(p.pnlCents),
-        trades: p.trades,
-        flow: fromCents(p.flowCents),
-      })),
+      // The first point is the starting balance (just before the first day).
+      points: [
+        ...(curve.points.length
+          ? [
+              {
+                day: format(subDays(parseISO(curve.points[0].day), 1), "yyyy-MM-dd"),
+                balance: fromCents(curve.startBalanceCents),
+                pnl: 0,
+                trades: 0,
+                flow: 0,
+                start: true,
+              },
+            ]
+          : []),
+        ...curve.points.map((p) => ({
+          start: false,
+          day: p.day,
+          balance: fromCents(p.balanceCents),
+          pnl: fromCents(p.pnlCents),
+          trades: p.trades,
+          flow: fromCents(p.flowCents),
+        })),
+      ],
     },
   };
 }
