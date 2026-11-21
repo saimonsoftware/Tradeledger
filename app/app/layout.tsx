@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { PostLoginIntro } from "@/components/brand/post-login-intro";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { EdgeSwipe } from "@/components/layout/edge-swipe";
+import { SidebarAccount } from "@/components/layout/sidebar-account";
 import { TopBar } from "@/components/layout/top-bar";
 import { UserMenu } from "@/components/layout/user-menu";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -16,12 +17,23 @@ async function CurrentUserMenu() {
   return <UserMenu email={user.email} />;
 }
 
+async function CurrentSidebarAccount() {
+  const user = await requireUser();
+  return <SidebarAccount email={user.email} />;
+}
+
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
     <TooltipProvider>
       <PostLoginIntro />
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebar
+          account={
+            <Suspense fallback={<div className="h-12 skeleton-shimmer rounded-xl" />}>
+              <CurrentSidebarAccount />
+            </Suspense>
+          }
+        />
         {/* Swipe from the left edge opens the sidebar instead of going back a page. */}
         <EdgeSwipe />
         <SidebarInset className="min-w-0">
