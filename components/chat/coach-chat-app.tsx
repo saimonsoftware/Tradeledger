@@ -30,6 +30,7 @@ import { useFieldIds } from "@/lib/use-field-ids";
 import { cn } from "@/lib/utils";
 
 import { ProposalCard } from "./proposal-card";
+import { useKeyboardViewport } from "./use-keyboard-viewport";
 
 type Bubble = { role: "user" | "assistant"; text: string; proposals: RuleProposal[] };
 type Conversation = { id: string; title: string; updated_at: string };
@@ -69,6 +70,7 @@ export function CoachChatApp({
 }) {
   const f = useFieldIds();
   const router = useRouter();
+  useKeyboardViewport();
   const [bubbles, setBubbles] = useState<Bubble[]>(initial);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -101,6 +103,18 @@ export function CoachChatApp({
   useEffect(() => {
     if (followRef.current) scrollToBottom(false);
   }, [bubbles, status, scrollToBottom]);
+
+  // The keyboard opening (or rotating the phone) makes the message area shorter:
+  // stay on the latest message if that's where the reader was.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (followRef.current) scrollToBottom(false);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scrollToBottom]);
 
   const onScroll = () => {
     const el = scrollRef.current;
@@ -226,7 +240,7 @@ export function CoachChatApp({
 
   // Full screen: fills the app content area below the top bar (cancelling its padding).
   return (
-    <div className="-mx-4 -my-6 flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] min-h-0 sm:-mx-6 sm:-my-8">
+    <div className="chat-root -mx-4 -my-6 flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] min-h-0 sm:-mx-6 sm:-my-8">
       {/* Desktop: conversations in a full-height column */}
       <aside
         aria-label="Conversations"
@@ -379,7 +393,7 @@ export function CoachChatApp({
               {busy ? <Loader2 className="animate-spin" /> : <ArrowUp />}
             </Button>
           </form>
-          <p className="mx-auto max-w-3xl pt-2 text-center text-[11px] text-muted-foreground">
+          <p className="chat-disclaimer mx-auto max-w-3xl pt-2 text-center text-[11px] text-muted-foreground">
             {left <= 5 && (
               <span className="tabular-nums">
                 {left} message{left === 1 ? "" : "s"} left today ·{" "}

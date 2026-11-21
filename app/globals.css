@@ -570,6 +570,51 @@
 }
 
 /* ---------- Coach chat (components/chat/coach-chat-app.tsx) ---------- */
+/* Phones: the chat screen is pinned to the visible area above the keyboard
+   (components/chat/use-keyboard-viewport.ts sets the classes and sizes). */
+@media (max-width: 767px) {
+  html.chat-lock,
+  html.chat-lock body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  html.chat-lock [data-slot="sidebar-inset"] {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: var(--vv-top, 0px);
+    height: var(--vv-height, 100dvh);
+    min-height: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Keyboard open: it covers the home indicator, so no bottom padding. */
+  html.chat-lock.chat-kb [data-slot="sidebar-inset"] {
+    padding-bottom: 0;
+  }
+  html.chat-lock #app-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+  }
+  /* The page-transition wrapper between the content area and the chat. */
+  html.chat-lock #app-content > * {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+  html.chat-lock .chat-root {
+    flex: 1;
+    height: auto;
+    margin: 0;
+  }
+  html.chat-lock.chat-kb .chat-disclaimer {
+    display: none;
+  }
+}
 /* New messages rise in gently. */
 .chat-in {
   animation: chat-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
