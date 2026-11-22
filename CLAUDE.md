@@ -494,6 +494,7 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - Trade times are entered as wall-clock times in the **user's profile timezone**; Server Actions convert with `fromZonedTime` (`lib/trades/actions.ts`). Display with `formatInTimeZone(iso, profile.timezone, …)`.
 - Prices/quantities (numeric(18,8)) travel as **exact strings** to Postgres (`numeric()` helper in `lib/trades/actions.ts`). Never `Number()` them before saving.
 - List filters live in the URL (`lib/trades/filters.ts`); invalid params are ignored, not errors. Totals are grouped by currency (never summed across currencies).
+- **Trades list UI**: stats tiles (`trades-stats.tsx`), quick filters as link segments (Result, Symbol) + a `<details>` "More filters" GET form (keeps quick filters/sort as hidden inputs) + removable filter chips; phones get cards (`md:hidden`, stretched link `after:absolute after:inset-0`, menu `relative z-10`), md+ the table. Never use a stretched link on a `<tr>` (Safari may position it against the table, so every click opens one trade).
 - **Responsive forms inside panels: use container queries** (`@container`, `@lg:`, `@3xl:`) so layout follows the form's own width, not the viewport.
 - **Wide tables:** the app content wrapper and `SidebarInset` need `min-w-0`, and a scroll box containing `sr-only` (absolutely positioned) elements needs `relative`, or the page scrolls sideways on mobile.
 - Sheet width: override with `data-[side=right]:sm:max-w-…` (the default sheet rule uses that selector).

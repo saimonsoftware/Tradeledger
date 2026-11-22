@@ -3,12 +3,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { SignedAmount } from "@/components/common/signed-amount";
 import { NoAccountsNotice } from "@/components/trades/no-accounts-notice";
 import { TradeFilters } from "@/components/trades/trade-filters";
+import { TradesStats } from "@/components/trades/trades-stats";
 import { TradesTable } from "@/components/trades/trades-table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TRADES_PAGE_SIZE } from "@/lib/trades/constants";
 import { getTradeFormOptions, listTrades } from "@/lib/trades/data";
 import { hasActiveFilters, parseTradeFilters, tradesHref } from "@/lib/trades/filters";
 
@@ -28,47 +29,14 @@ async function TradesContent({
   const filtered = hasActiveFilters(filters);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <TradesStats totals={totals} />
+
       <TradeFilters filters={filters} accounts={options.accounts} strategies={options.strategies} />
 
-      {/* Totals for the whole filtered set (not just this page) */}
-      <section
-        aria-label="Totals"
-        className="grid grid-cols-2 gap-4 rounded-2xl surface p-4 sm:grid-cols-4"
-      >
-        <div>
-          <p className="text-xs text-muted-foreground">Trades</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums">{totals.trades}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Closed</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums">{totals.closed}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Win rate</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums">
-            {totals.winRate === null ? "—" : `${Math.round(totals.winRate * 100)}%`}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Net P&amp;L</p>
-          <div className="mt-0.5 space-y-0.5 text-lg">
-            {totals.netByCurrency.length === 0 ? (
-              <p className="font-semibold text-muted-foreground">—</p>
-            ) : (
-              totals.netByCurrency.map((t) => (
-                <p key={t.currency}>
-                  <SignedAmount value={t.netPnl} currency={t.currency} className="font-semibold" />
-                </p>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
       {trades.length === 0 ? (
-        <div className="flex flex-col items-center rounded-2xl surface px-6 py-14 text-center">
-          <span className="flex size-11 items-center justify-center rounded-xl border bg-background text-primary">
+        <div className="flex flex-col items-center rounded-2xl border border-dashed px-6 py-16 text-center">
+          <span className="chat-mark-glow flex size-12 items-center justify-center rounded-2xl border bg-background">
             <BookOpen className="size-5" aria-hidden="true" />
           </span>
           <h2 className="mt-4 text-lg font-semibold">
@@ -90,31 +58,54 @@ async function TradesContent({
       ) : (
         <>
           <TradesTable trades={trades} filters={filters} timezone={timezone} />
-          <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
+          <nav
+            aria-label="Pagination"
+            className="flex flex-wrap items-center justify-between gap-3 text-sm"
+          >
             <p className="text-muted-foreground tabular-nums">
-              {count} trade{count === 1 ? "" : "s"} · page {page} of {pageCount}
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {(page - 1) * TRADES_PAGE_SIZE + 1}–{Math.min(page * TRADES_PAGE_SIZE, count)}
+              </span>{" "}
+              of <span className="font-medium text-foreground">{count}</span> trade
+              {count === 1 ? "" : "s"}
             </p>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-1.5">
               {page > 1 ? (
-                <Button asChild variant="outline" size="sm" className="h-8">
-                  <Link href={tradesHref(filters, { page: page - 1 })}>
-                    <ChevronLeft data-icon="inline-start" /> Previous
+                <Button asChild variant="outline" size="icon-sm" className="rounded-full">
+                  <Link href={tradesHref(filters, { page: page - 1 })} aria-label="Previous page">
+                    <ChevronLeft />
                   </Link>
                 </Button>
               ) : (
-                <Button variant="outline" size="sm" className="h-8" disabled>
-                  <ChevronLeft data-icon="inline-start" /> Previous
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="rounded-full"
+                  disabled
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft />
                 </Button>
               )}
+              <span className="min-w-16 text-center text-xs text-muted-foreground tabular-nums">
+                Page {page} of {pageCount}
+              </span>
               {page < pageCount ? (
-                <Button asChild variant="outline" size="sm" className="h-8">
-                  <Link href={tradesHref(filters, { page: page + 1 })}>
-                    Next <ChevronRight data-icon="inline-end" />
+                <Button asChild variant="outline" size="icon-sm" className="rounded-full">
+                  <Link href={tradesHref(filters, { page: page + 1 })} aria-label="Next page">
+                    <ChevronRight />
                   </Link>
                 </Button>
               ) : (
-                <Button variant="outline" size="sm" className="h-8" disabled>
-                  Next <ChevronRight data-icon="inline-end" />
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="rounded-full"
+                  disabled
+                  aria-label="Next page"
+                >
+                  <ChevronRight />
                 </Button>
               )}
             </div>
@@ -128,8 +119,13 @@ async function TradesContent({
 function TradesSkeleton() {
   return (
     <div className="space-y-4">
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-20 rounded-2xl" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Skeleton className="col-span-2 h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+        <Skeleton className="h-28 rounded-2xl" />
+      </div>
+      <Skeleton className="h-9 w-80 max-w-full rounded-xl" />
+      <Skeleton className="h-12 rounded-2xl" />
       <Skeleton className="h-96 rounded-2xl" />
     </div>
   );
@@ -140,12 +136,14 @@ export default function TradesPage({ searchParams }: PageProps<"/app/trades">) {
     <div>
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Trades</h1>
+          <h1 className="text-silver text-2xl font-semibold tracking-tight text-glow sm:text-3xl">
+            Trades
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Every trade you&apos;ve logged, filterable and sortable.
+            Every trade you&apos;ve logged. Filter, sort and review.
           </p>
         </div>
-        <Button asChild variant="contrast" size="sm" className="h-8">
+        <Button asChild variant="contrast" size="sm" className="h-9 rounded-xl px-3.5">
           <Link href="/app/trades/new">
             <Plus data-icon="inline-start" /> New trade
           </Link>
