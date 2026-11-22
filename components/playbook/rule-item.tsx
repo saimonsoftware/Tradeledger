@@ -49,30 +49,31 @@ export function RuleItem({ rule, index, total }: { rule: Rule; index: number; to
     });
 
   return (
-    <li className="flex items-start gap-3 px-5 py-4">
-      <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs tabular-nums">
+    <li className="group flex items-start gap-3 px-4 py-4 transition-colors hover:bg-muted/30 sm:px-5">
+      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border bg-linear-to-b from-muted to-background font-mono text-xs font-semibold tabular-nums">
         {index + 1}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-medium">
-          {rule.title}
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+          <span className="min-w-0 break-words">{rule.title}</span>
           {rule.source === "ai" && (
             <span
-              className="ml-2 inline-flex items-center gap-0.5 align-middle text-[11px] font-normal text-primary"
+              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
               title="Suggested by your AI coach"
             >
-              <Sparkles className="size-3" aria-hidden="true" /> AI
+              <Sparkles className="size-3" aria-hidden="true" /> Coach
             </span>
           )}
         </p>
         {rule.description && (
-          <p className="mt-0.5 text-sm whitespace-pre-wrap text-muted-foreground">
+          <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
             {rule.description}
           </p>
         )}
       </div>
-      {!rule.is_archived && (
-        <div className="flex shrink-0">
+      {!rule.is_archived && total > 1 && (
+        // Always visible on touch screens; on desktop they appear on hover/focus.
+        <div className="-my-1 flex shrink-0 flex-col transition-opacity sm:my-0 sm:flex-row [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon-sm"
