@@ -165,7 +165,7 @@ A public, dark, modern marketing page.
 
 ### 5.3 App Shell (`/app/*`)
 
-- **Sidebar** (collapsible; becomes a drawer on mobile): Dashboard, Trades, Accounts, Settings. Placeholders (disabled, "Coming soon"): Analytics, Calendar, Playbook.
+- **Sidebar** (collapsible; becomes a drawer on mobile): Dashboard, Trades, Accounts, Settings. Placeholders (disabled, "Coming soon"): Calendar (Analytics and Playbook are built).
 - **Top bar:** page title, "+ Log trade" quick button, theme toggle, user menu (email, Settings, Log out).
 
 ### 5.4 Trading Accounts (`/app/accounts`)
@@ -562,6 +562,14 @@ Start Phase 3 (Database & isolation tests). Show me the RLS policies and explain
 - **Edge swipe** (`components/layout/edge-swipe.tsx`, app layout): a touch that starts within 24px of the left edge is cancelled (`preventDefault` on a non-passive touchstart), so iOS's "swipe back" doesn't fire. Moving ≥40px right opens the sidebar instead, and a plain tap is replayed as a click. Android's system Back gesture can't be blocked by a website.
 - **No zoom in the installed app only** (`NO_ZOOM_SCRIPT`, `components/layout/no-zoom.ts`, in the root `<head>`): adds `html.tl-app` (CSS `touch-action: pan-x pan-y`) and cancels Safari `gesture*` events / multi-touch moves. The viewport meta is unchanged, so the browser website keeps zoom (WCAG 1.4.4, axe `meta-viewport`).
 - Form controls must be ≥16px on mobile (`text-base md:text-sm`), or iOS zooms in on focus. This includes native `<select>`s.
+
+### Analytics (`/app/analytics`)
+
+- Built on the SAME numbers as the AI Coach: `loadStatTrades()` (`lib/insights/load.ts`, shared with `buildCoachInput`) → `computeInsightStats()`, plus extra pure, tested measures in `lib/analytics/stats.ts` (max drawdown in R, R distribution buckets, monthly, rolling 20-trade win rate/expectancy, SL size on wins vs losses).
+- Results are shown in R (currency-neutral); money only per currency (net P&L tile, profit factor, monthly table). Groups with < `MIN_SAMPLE` trades are faded / flagged "small sample".
+- Filters in the URL (`range`, `account`, `symbol`, `strategy`; zod, invalid values ignored): link segments + `AccountPicker` (shown only with 2+ accounts).
+- Charts (`components/analytics/charts.tsx`, client) follow the dashboard chart rules; each has an sr-only table. Rolling win rate and expectancy are TWO charts (never two y-axes). `fmtR` lives in `lib/analytics/format.ts`: a server page can't call functions exported from a `"use client"` file.
+- **Grids with wide (scrolling) tables need `grid-cols-1` + `min-w-0` on the cards**, or the phone page silently becomes wider than the screen (layout viewport 594px instead of 393px; visible as a zoomed-out page). Check `innerWidth` on a phone emulation, not just `scrollWidth`.
 
 ### Simple trades & screenshots (replaces parts of spec 5.6)
 

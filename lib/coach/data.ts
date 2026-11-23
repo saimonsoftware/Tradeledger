@@ -3,11 +3,10 @@ import "server-only";
 import { formatInTimeZone } from "date-fns-tz";
 
 import { requireUser } from "@/lib/auth/dal";
-import { pipsBetween, savedTradeResult } from "@/lib/calculations/rr";
-import { lastNDays, startOfLocalDay } from "@/lib/calculations/week";
-import { computeInsightStats, sessionOf, type StatTrade } from "@/lib/insights/stats";
+import { lastNDays } from "@/lib/calculations/week";
+import { loadStatTrades } from "@/lib/insights/load";
+import { computeInsightStats, sessionOf } from "@/lib/insights/stats";
 import { getProfile } from "@/lib/profile/data";
-import { SYMBOL_ASSET_CLASS } from "@/lib/trades/constants";
 import { createClient } from "@/lib/supabase/server";
 
 export const PERIODS = { "30": 30, "90": 90, "365": 365, all: null } as const;
@@ -24,56 +23,10 @@ const MAX_NOTE_CHARS = 300;
 export async function buildCoachInput(period: PeriodKey, accountId: string | null) {
   await requireUser();
   const { timezone } = await getProfile();
-  const supabase = await createClient();
-
   const days = PERIODS[period];
   const now = new Date();
   const fromDate = days ? lastNDays(now, timezone, days)[0] : null;
-
-  let query = supabase
-    .from("trades")
-    .select(
-      "symbol, direction, strategy, tags, rating, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
-    )
-    .eq("status", "closed")
-    .order("exit_time", { ascending: false })
-    .limit(5000);
-  if (fromDate) query = query.gte("exit_time", startOfLocalDay(fromDate, timezone).toISOString());
-  if (accountId) query = query.eq("account_id", accountId);
-
-  const { data, error } = await query;
-  if (error) throw new Error("Could not load trades");
-
-  const num = (v: string | null) => (v === null ? null : Number(v));
-  const rows = data.map((t) => {
-    const entry = String(t.entry_price);
-    const sl = t.stop_loss === null ? null : String(t.stop_loss);
-    const tp = t.take_profit === null ? null : String(t.take_profit);
-    return {
-      t,
-      pips: num(savedTradeResult(t).pips),
-      slPips: num(pipsBetween(t.symbol, entry, sl)),
-      tpPips: num(pipsBetween(t.symbol, entry, tp)),
-    };
-  });
-
-  const trades: StatTrade[] = rows.map(({ t, pips, slPips, tpPips }) => ({
-    symbol: t.symbol,
-    direction: t.direction,
-    assetClass: SYMBOL_ASSET_CLASS[t.symbol] ?? "other",
-    strategy: t.strategy,
-    tags: t.tags,
-    rating: t.rating,
-    entryTime: t.entry_time,
-    exitTime: t.exit_time!,
-    netPnl: Number(t.net_pnl),
-    // Trade RR (calculated from SL/TP, or typed by the trader).
-    rMultiple: t.r_multiple === null ? null : Number(t.r_multiple),
-    currency: t.account?.currency ?? "EUR",
-    pips,
-    slPips,
-    tpPips,
-  }));
+  const { rows, trades } = await loadStatTrades({ timezone, fromDate, accountId });
 
   const period_ = { from: fromDate, to: lastNDays(now, timezone, 1)[0] };
   const stats = computeInsightStats(trades, timezone, period_);

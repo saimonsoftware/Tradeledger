@@ -42,6 +42,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/app/trades", label: "Trades", icon: BookOpen },
+      { href: "/app/analytics", label: "Analytics", icon: LineChart },
       { href: "/app/accounts", label: "Accounts", icon: Wallet },
     ],
   },
@@ -55,10 +56,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
   },
 ];
 
-const SOON: NavItem[] = [
-  { href: "#", label: "Analytics", icon: LineChart },
-  { href: "#", label: "Calendar", icon: CalendarDays },
-];
+const SOON: NavItem[] = [{ href: "#", label: "Calendar", icon: CalendarDays }];
 
 /**
  * Nav item look: taller, rounder rows; the current page gets a raised surface and a
