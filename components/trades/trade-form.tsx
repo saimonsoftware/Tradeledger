@@ -192,24 +192,19 @@ function CompactSummary({
   );
 }
 
-/**
- * Two-option toggle (radio group), used for Direction, Bias and Profit/Loss.
- * `clearable`: tapping the chosen option again clears it (for optional fields).
- */
+/** Two-option toggle (radio group), used for Direction, Bias and Profit/Loss. */
 function Toggle<T extends string>({
   value,
   onChange,
   options,
   labelledBy,
   describedBy,
-  clearable = false,
 }: {
   value: T | "";
-  onChange: (v: T | "") => void;
+  onChange: (v: T) => void;
   options: { value: T; label: React.ReactNode; activeClass?: string }[];
   labelledBy: string;
   describedBy?: string;
-  clearable?: boolean;
 }) {
   return (
     <div
@@ -224,7 +219,7 @@ function Toggle<T extends string>({
           type="button"
           role="radio"
           aria-checked={value === o.value}
-          onClick={() => onChange(clearable && value === o.value ? "" : o.value)}
+          onClick={() => onChange(o.value)}
           className={cn(
             "h-8 rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
             value === o.value
@@ -427,7 +422,6 @@ export function TradeForm({
                       onChange={fld.onChange}
                       labelledBy={f("bias-label")}
                       describedBy={f("bias-hint")}
-                      clearable
                       options={[
                         { value: "pro", label: "✓ Pro bias" },
                         { value: "counter", label: "⇄ Counter bias" },
@@ -436,7 +430,7 @@ export function TradeForm({
                   )}
                 />
                 <p id={f("bias-hint")} className="text-xs text-muted-foreground">
-                  With or against your higher-timeframe bias. Tap again to clear.
+                  With or against your higher-timeframe bias.
                 </p>
                 <FieldError id={f("bias-error")} message={errors.bias?.message} />
               </div>
