@@ -240,3 +240,38 @@ describe("R totals, pips and break-even win rate", () => {
     expect(s.overall.breakevenWinRate).toBeNull();
   });
 });
+
+describe("bias (pro / counter)", () => {
+  it("groups trades with vs against the trader's bias, leaving unrecorded ones out", async () => {
+    const { computeInsightStats } = await import("@/lib/insights/stats");
+    const base = {
+      symbol: "NQ",
+      direction: "long",
+      assetClass: "future",
+      strategy: "FBOs",
+      tags: [],
+      rating: null,
+      entryTime: "2026-11-20T14:00:00Z",
+      exitTime: "2026-11-20T14:00:00Z",
+      currency: "USD",
+    };
+    const s = computeInsightStats(
+      [
+        { ...base, bias: "pro", netPnl: 200, rMultiple: 2 },
+        { ...base, bias: "pro", netPnl: -100, rMultiple: -1 },
+        { ...base, bias: "counter", netPnl: -100, rMultiple: -1 },
+        { ...base, bias: null, netPnl: 300, rMultiple: 3 },
+      ],
+      "UTC",
+    );
+    expect(s.byBias.map((g) => [g.key, g.trades, g.totalR])).toEqual([
+      ["Pro bias", 2, 1],
+      ["Counter bias", 1, -1],
+    ]);
+    expect(s.byStrategyBias.map((g) => g.key).sort()).toEqual([
+      "FBOs · Counter bias",
+      "FBOs · Pro bias",
+    ]);
+    expect(s.definitions.bias).toMatch(/Pro bias/);
+  });
+});

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { checkLevel, tradeResult } from "@/lib/calculations/rr";
 import {
+  BIASES,
   DIRECTIONS,
   MAX_CONFLUENCE_CHARS,
   MAX_TAGS,
@@ -94,6 +95,17 @@ export const tradeSchema = z
         z.union([
           z.literal("").transform(() => null),
           z.string().regex(RR, "Enter the RR like 2 or 1.5"),
+        ]),
+      ),
+    // With or against the trader's bias; optional.
+    bias: z
+      .string()
+      .optional()
+      .transform((s) => s?.trim() ?? "")
+      .pipe(
+        z.union([
+          z.literal("").transform(() => null),
+          z.enum(BIASES, { message: "Choose pro bias or counter bias" }),
         ]),
       ),
     stopLoss: optionalPositiveDecimal("SL price"),

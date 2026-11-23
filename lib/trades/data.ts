@@ -14,7 +14,7 @@ import type { TradeFilters } from "./filters";
 type Client = Awaited<ReturnType<typeof createClient>>;
 
 const LIST_COLUMNS =
-  "id, symbol, direction, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, status, strategy, account:trading_accounts(id, name, currency)";
+  "id, symbol, direction, bias, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, status, strategy, account:trading_accounts(id, name, currency)";
 
 /**
  * Applies the list filters to a trades query. Date filters are calendar days in
@@ -129,11 +129,7 @@ export async function getTradeFormOptions(client?: Client) {
       .select("id, name, currency, is_archived")
       .order("created_at", { ascending: true }),
     // Confluences this trader has used (custom ones included), newest trades first.
-    supabase
-      .from("trades")
-      .select("tags")
-      .order("entry_time", { ascending: false })
-      .limit(1000),
+    supabase.from("trades").select("tags").order("entry_time", { ascending: false }).limit(1000),
   ]);
   const confluences: string[] = [...DEFAULT_CONFLUENCES];
   for (const row of used.data ?? []) {

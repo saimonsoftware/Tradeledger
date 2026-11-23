@@ -13,6 +13,8 @@ export type StatTrade = {
   direction: "long" | "short" | string;
   assetClass: string;
   strategy: string | null;
+  /** "pro" (with the trader's bias) / "counter" (against it); null if not recorded. */
+  bias?: string | null;
   tags: string[];
   rating: number | null;
   entryTime: string; // ISO
@@ -90,6 +92,9 @@ export type InsightStats = {
   byStrategySymbol: GroupStats[];
   byStrategyDirection: GroupStats[];
   byStrategySession: GroupStats[];
+  /** With vs against the trader's bias ("Pro bias" / "Counter bias"; unrecorded trades left out). */
+  byBias: GroupStats[];
+  byStrategyBias: GroupStats[];
   /** Plain-language definitions sent along with the numbers. */
   definitions: Record<string, string>;
   byRating: GroupStats[];
@@ -207,6 +212,8 @@ export function sessionOf(entryIso: string): (typeof SESSIONS)[number] {
 }
 
 const strategyOf = (t: StatTrade) => t.strategy?.trim() || "(no strategy)";
+const biasOf = (t: StatTrade) =>
+  t.bias === "pro" ? "Pro bias" : t.bias === "counter" ? "Counter bias" : null;
 const bySessionOrder = (a: GroupStats, b: GroupStats) =>
   SESSIONS.indexOf(a.key as (typeof SESSIONS)[number]) -
   SESSIONS.indexOf(b.key as (typeof SESSIONS)[number]);
@@ -306,6 +313,8 @@ export function computeInsightStats(
     byStrategySymbol: groupBy(sorted, (t) => `${strategyOf(t)} · ${t.symbol}`),
     byStrategyDirection: groupBy(sorted, (t) => `${strategyOf(t)} · ${t.direction}`),
     byStrategySession: groupBy(sorted, (t) => `${strategyOf(t)} · ${sessionOf(t.entryTime)}`),
+    byBias: groupBy(sorted, (t) => biasOf(t)),
+    byStrategyBias: groupBy(sorted, (t) => (biasOf(t) ? `${strategyOf(t)} · ${biasOf(t)}` : null)),
     byRating: groupBy(sorted, (t) => (t.rating ? `${t.rating}★` : "unrated")).sort((a, b) =>
       a.key.localeCompare(b.key),
     ),
@@ -320,6 +329,7 @@ export function computeInsightStats(
       combinations:
         'byStrategySymbol / byStrategyDirection / byStrategySession keys are "strategy · symbol/direction/session".',
       holdingTime: "Not tracked: trades are logged without an exit time.",
+      bias: 'byBias / byStrategyBias: whether the trade went WITH the trader\'s higher-timeframe bias ("Pro bias") or AGAINST it ("Counter bias"). Trades without a recorded bias are left out.',
       tags: 'byTag groups trades by the trader\'s CONFLUENCES (stored as tags), e.g. "Liquidity sweep" or "Fair value gap". A trade with several confluences counts in each of them. Call them confluences when talking to the trader.',
     },
   };

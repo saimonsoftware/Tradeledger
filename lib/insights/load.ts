@@ -29,7 +29,7 @@ export async function loadStatTrades({
   let query = supabase
     .from("trades")
     .select(
-      "symbol, direction, strategy, tags, rating, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
+      "symbol, direction, bias, strategy, tags, rating, entry_time, exit_time, entry_price, stop_loss, take_profit, net_pnl, r_multiple, notes, account:trading_accounts(currency)",
     )
     .eq("status", "closed")
     .order("exit_time", { ascending: false })
@@ -58,6 +58,7 @@ export async function loadStatTrades({
   const trades: StatTrade[] = rows.map(({ t, pips, slPips, tpPips }) => ({
     symbol: t.symbol,
     direction: t.direction,
+    bias: t.bias,
     assetClass: SYMBOL_ASSET_CLASS[t.symbol] ?? "other",
     strategy: t.strategy,
     tags: t.tags,

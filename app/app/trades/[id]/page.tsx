@@ -15,6 +15,7 @@ import { formatPrice, formatR } from "@/lib/format/number";
 import { getProfile } from "@/lib/profile/data";
 import type { TradeSymbol } from "@/lib/trades/constants";
 import { getScreenshotsForTrade, getTrade } from "@/lib/trades/data";
+import { BIAS_LABELS } from "@/lib/trades/constants";
 import { cn } from "@/lib/utils";
 import { idSchema } from "@/lib/validation/accounts";
 
@@ -63,6 +64,7 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
     ["Stop loss (SL)", withPips(trade.stop_loss, pipsBetween(trade.symbol, entry, sl))],
     ["Take profit (TP)", withPips(trade.take_profit, pipsBetween(trade.symbol, entry, tp))],
     ["Strategy", trade.strategy ?? "—"],
+    ["Bias", trade.bias ? BIAS_LABELS[trade.bias] : "—"],
   ];
 
   return (
@@ -81,6 +83,11 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
             >
               {trade.direction}
             </span>
+            {trade.bias && (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">
+                {BIAS_LABELS[trade.bias]}
+              </span>
+            )}
             <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium">{result}</span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">

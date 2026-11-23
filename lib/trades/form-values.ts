@@ -6,6 +6,7 @@ type TradeLike = {
   account_id: string;
   symbol: string;
   direction: string;
+  bias: string | null;
   entry_time: string;
   entry_price: number;
   net_pnl: number | null;
@@ -26,6 +27,7 @@ export function emptyTradeValues(nowLocal: string, accountId = ""): TradeInput {
     accountId,
     symbol: "EURUSD",
     direction: "long",
+    bias: "",
     entryTime: nowLocal,
     entryPrice: "",
     pnlAmount: "",
@@ -48,6 +50,7 @@ export function tradeToFormValues(t: TradeLike, tz: string): TradeInput {
     // Older trades may use a symbol that's no longer offered; the form asks to pick one.
     symbol: t.symbol as TradeInput["symbol"],
     direction: t.direction as TradeInput["direction"],
+    bias: t.bias ?? "",
     entryTime: local(t.entry_time, tz),
     entryPrice: str(t.entry_price),
     pnlAmount: pnl === null ? "" : pnl.replace(/^-/, ""),

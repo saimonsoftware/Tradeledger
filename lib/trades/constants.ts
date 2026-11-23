@@ -10,6 +10,10 @@ export const STRATEGIES = ["FBOs", "Mitigation"] as const;
 export type Strategy = (typeof STRATEGIES)[number];
 
 export const DIRECTIONS = ["long", "short"] as const;
+/** Trade with ("pro") or against ("counter") the trader's bias. Optional; the DB checks the same list. */
+export const BIASES = ["pro", "counter"] as const;
+export type Bias = (typeof BIASES)[number];
+export const BIAS_LABELS: Record<string, string> = { pro: "Pro bias", counter: "Counter bias" };
 export const RESULTS = ["win", "loss", "breakeven"] as const;
 export const STATUSES = ["open", "closed"] as const;
 /** Whether the P&L amount the trader typed is a profit or a loss. */

@@ -294,6 +294,7 @@ async function AnalyticsContent({
   const aboveBreakeven = o.breakevenWinRate === null ? null : o.winRate > o.breakevenWinRate;
 
   const combos = [
+    ...a.stats.byStrategyBias,
     ...a.stats.byStrategySymbol,
     ...a.stats.byStrategySession,
     ...a.stats.byStrategyDirection,
@@ -431,6 +432,13 @@ async function AnalyticsContent({
             key: g.key === "long" ? "Long" : g.key === "short" ? "Short" : g.key,
           }))}
         />
+        {a.stats.byBias.length > 0 && (
+          <GroupCard
+            title="Bias"
+            description="With vs against your higher-timeframe bias. Trades without a bias are left out."
+            groups={a.stats.byBias}
+          />
+        )}
         {a.stats.byTag.length > 0 && (
           <GroupCard
             title="Confluences"
@@ -440,7 +448,7 @@ async function AnalyticsContent({
         )}
         <Card
           title="Best and worst combinations"
-          description="Strategy combined with symbol, session or direction, ranked by total R."
+          description="Strategy combined with symbol, session, direction or bias, ranked by total R."
         >
           {comboRows.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">

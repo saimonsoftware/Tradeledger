@@ -38,6 +38,7 @@ function toRow(v: TradeOutput, tz: string) {
     account_id: v.accountId,
     symbol: v.symbol,
     direction: v.direction,
+    bias: v.bias,
     entry_time: toUtc(v.entryTime, tz),
     entry_price: numeric(v.entryPrice),
     exit_price: null, // no longer collected (SL/TP prices instead)

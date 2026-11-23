@@ -39,6 +39,7 @@ export async function buildCoachInput(period: PeriodKey, accountId: string | nul
     session: sessionOf(t.entry_time),
     symbol: t.symbol,
     dir: t.direction,
+    bias: t.bias ?? undefined,
     strategy: t.strategy,
     result: Number(t.net_pnl) > 0 ? "win" : Number(t.net_pnl) < 0 ? "loss" : "breakeven",
     r: t.r_multiple === null ? null : Number(t.r_multiple),

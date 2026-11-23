@@ -5,7 +5,7 @@ import Link from "next/link";
 import { SignedAmount } from "@/components/common/signed-amount";
 import { PIP_LABEL, pipsBetween } from "@/lib/calculations/rr";
 import { formatPrice, formatR } from "@/lib/format/number";
-import type { TradeSymbol } from "@/lib/trades/constants";
+import { BIAS_LABELS, type TradeSymbol } from "@/lib/trades/constants";
 import type { TradeListItem } from "@/lib/trades/data";
 import { tradesHref, type SortField, type TradeFilters } from "@/lib/trades/filters";
 import { cn } from "@/lib/utils";
@@ -159,6 +159,7 @@ export function TradesTable({
                 <p className="mt-0.5 truncate text-xs text-muted-foreground tabular-nums">
                   {formatInTimeZone(t.entry_time, timezone, "EEE d MMM · HH:mm")}
                   {t.strategy && ` · ${t.strategy}`}
+                  {t.bias && ` · ${BIAS_LABELS[t.bias]}`}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1">
@@ -229,8 +230,12 @@ export function TradesTable({
                             </Link>
                             <SidePill direction={t.direction} />
                           </div>
-                          {t.strategy && (
-                            <p className="mt-0.5 text-xs text-muted-foreground">{t.strategy}</p>
+                          {(t.strategy || t.bias) && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {[t.strategy, t.bias && BIAS_LABELS[t.bias]]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
                           )}
                         </div>
                       </div>

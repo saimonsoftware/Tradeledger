@@ -105,6 +105,8 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await sheet.getByLabel("Account").click();
   await page.getByRole("option", { name: new RegExp(ACCOUNT) }).click();
   await sheet.getByRole("radio", { name: "NQ" }).click();
+  await sheet.getByRole("radio", { name: /Pro bias/ }).click();
+  await expect(sheet.getByRole("radio", { name: /Pro bias/ })).toHaveAttribute("aria-checked", "true");
   await sheet.getByLabel("Entry price").fill("21480");
   await sheet.getByLabel(/SL price/).fill("21460");
   await sheet.getByLabel(/TP price/).fill("21520");
@@ -147,6 +149,7 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(page.getByLabel("Results")).toContainText("+2.00R");
   await expect(page.getByLabel("Results")).toContainText("+40 points");
   await expect(page.getByText("FBOs")).toBeVisible();
+  await expect(page.getByText("Pro bias").first()).toBeVisible();
   await expect(page.getByRole("list", { name: "Confluences" })).toContainText("London range");
   await expect(page.getByText("21,460 · 20 points")).toBeVisible();
   await expect(page.getByText("21,520 · 40 points")).toBeVisible();

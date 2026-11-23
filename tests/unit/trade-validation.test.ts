@@ -144,3 +144,15 @@ describe("tradeSchema", () => {
     expect(tradeSchema.safeParse({ ...base, notes: "x".repeat(5001) }).success).toBe(false);
   });
 });
+
+describe("bias", () => {
+  it("is optional: blank or missing means none", () => {
+    expect(tradeSchema.parse(base).bias).toBeNull();
+    expect(tradeSchema.parse({ ...base, bias: "" }).bias).toBeNull();
+  });
+  it("accepts pro and counter only", () => {
+    expect(tradeSchema.parse({ ...base, bias: "pro" }).bias).toBe("pro");
+    expect(tradeSchema.parse({ ...base, bias: "counter" }).bias).toBe("counter");
+    expect(tradeSchema.safeParse({ ...base, bias: "sideways" }).success).toBe(false);
+  });
+});

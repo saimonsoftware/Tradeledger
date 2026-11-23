@@ -297,6 +297,7 @@ export type Database = {
       trades: {
         Row: {
           account_id: string
+          bias: string | null
           created_at: string
           direction: string
           entry_price: number
@@ -319,6 +320,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          bias?: string | null
           created_at?: string
           direction: string
           entry_price: number
@@ -341,6 +343,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          bias?: string | null
           created_at?: string
           direction?: string
           entry_price?: number
