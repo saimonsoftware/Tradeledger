@@ -28,6 +28,7 @@ async function EditTrade({ params }: { params: PageProps<"/app/trades/[id]/edit"
       accounts={accounts}
       strategies={options.strategies}
       confluences={options.confluences}
+      hiddenConfluences={options.hiddenConfluences}
       timezone={options.timezone}
       defaultValues={tradeToFormValues(trade, options.timezone)}
     />

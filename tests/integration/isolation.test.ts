@@ -257,6 +257,14 @@ describe.skipIf(!configured)("data isolation between users (RLS)", () => {
         .select();
       expect(data).toEqual([]);
     });
+
+    it("profile's deleted confluences", async () => {
+      const { data } = await B.from("profiles")
+        .update({ hidden_confluences: ["pwned"] })
+        .eq("id", aId)
+        .select();
+      expect(data).toEqual([]);
+    });
   });
 
   // ---------------------------------------------------------------- DELETE

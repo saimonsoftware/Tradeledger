@@ -48,6 +48,9 @@ test.afterAll(async () => {
     if (files?.length) await shots.remove(files.map((f) => `${t.user_id}/${t.id}/${f.name}`));
   }
   await sb.from("trading_accounts").delete().eq("name", ACCOUNT);
+  // Bring back any confluence the test deleted from the list (even if it failed midway).
+  const { data: me } = await sb.auth.getUser();
+  if (me.user) await sb.from("profiles").update({ hidden_confluences: [] }).eq("id", me.user.id);
   await sb.auth.signOut({ scope: "local" });
 });
 
@@ -106,7 +109,10 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await page.getByRole("option", { name: new RegExp(ACCOUNT) }).click();
   await sheet.getByRole("radio", { name: "NQ" }).click();
   await sheet.getByRole("radio", { name: /Pro bias/ }).click();
-  await expect(sheet.getByRole("radio", { name: /Pro bias/ })).toHaveAttribute("aria-checked", "true");
+  await expect(sheet.getByRole("radio", { name: /Pro bias/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
   await sheet.getByLabel("Entry price").fill("21480");
   await sheet.getByLabel(/SL price/).fill("21460");
   await sheet.getByLabel(/TP price/).fill("21520");
@@ -121,10 +127,18 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await sheet.getByLabel(/Strategy/).click();
   await page.getByRole("option", { name: "FBOs" }).click();
   // Confluences: pick a starter one and add a custom one, then close the dropdown.
-  await sheet.getByLabel(/^Confluences/).click();
-  await page.getByRole("button", { name: "Liquidity sweep" }).click();
+  await sheet.getByRole("button", { name: /^Confluences/ }).click();
+  await page.getByRole("button", { name: "Liquidity sweep", exact: true }).click();
   await page.getByLabel("Search or add a confluence").fill("London range");
   await page.getByLabel("Search or add a confluence").press("Enter");
+  // Delete a starter confluence from the list, check it's gone, then restore it.
+  await page.getByRole("button", { name: "Delete Killzone from your list" }).click();
+  await expect(page.getByRole("button", { name: "Killzone", exact: true })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await sheet.getByRole("button", { name: /^Confluences/ }).click();
+  await expect(page.getByRole("button", { name: "Killzone", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: /Restore deleted/ }).click();
+  await expect(page.getByRole("button", { name: "Killzone", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(sheet.getByRole("list", { name: "Selected confluences" })).toContainText(
     /Liquidity sweep[\s\S]*London range/,

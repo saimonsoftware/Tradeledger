@@ -43,6 +43,8 @@ type Props = {
   strategies: string[];
   /** Confluence choices: starter list + ones the trader used before. */
   confluences?: string[];
+  /** Confluences the trader deleted from the dropdown. */
+  hiddenConfluences?: string[];
   timezone: string;
   defaultValues: TradeInput;
   tradeId?: string;
@@ -238,6 +240,7 @@ export function TradeForm({
   accounts,
   strategies,
   confluences = [...DEFAULT_CONFLUENCES],
+  hiddenConfluences = [],
   timezone,
   defaultValues,
   tradeId,
@@ -675,6 +678,7 @@ export function TradeForm({
                       value={fld.value ?? ""}
                       onChange={fld.onChange}
                       options={confluences}
+                      hidden={hiddenConfluences}
                       invalid={!!errors.tags}
                       describedBy={errors.tags ? f("tags-error") : undefined}
                     />

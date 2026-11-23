@@ -120,16 +120,18 @@ export async function getScreenshotsForTrade(tradeId: string) {
 }
 
 export async function getTradeFormOptions(client?: Client) {
-  await requireUser();
+  const user = await requireUser();
   const { timezone } = await getProfile();
   const supabase = client ?? (await createClient());
-  const [accounts, used] = await Promise.all([
+  const [accounts, used, profile] = await Promise.all([
     supabase
       .from("trading_accounts")
       .select("id, name, currency, is_archived")
       .order("created_at", { ascending: true }),
     // Confluences this trader has used (custom ones included), newest trades first.
     supabase.from("trades").select("tags").order("entry_time", { ascending: false }).limit(1000),
+    // Confluences the trader removed from the dropdown.
+    supabase.from("profiles").select("hidden_confluences").eq("id", user.id).maybeSingle(),
   ]);
   const confluences: string[] = [...DEFAULT_CONFLUENCES];
   for (const row of used.data ?? []) {
@@ -146,6 +148,7 @@ export async function getTradeFormOptions(client?: Client) {
     // The fixed list of setups (form dropdown and list filter).
     strategies: [...STRATEGIES] as string[],
     confluences,
+    hiddenConfluences: profile.data?.hidden_confluences ?? [],
   };
 }
 

@@ -270,6 +270,7 @@ export type Database = {
           created_at: string
           default_currency: string
           display_name: string | null
+          hidden_confluences: string[]
           id: string
           timezone: string
           updated_at: string
@@ -279,6 +280,7 @@ export type Database = {
           created_at?: string
           default_currency?: string
           display_name?: string | null
+          hidden_confluences?: string[]
           id: string
           timezone?: string
           updated_at?: string
@@ -288,6 +290,7 @@ export type Database = {
           created_at?: string
           default_currency?: string
           display_name?: string | null
+          hidden_confluences?: string[]
           id?: string
           timezone?: string
           updated_at?: string

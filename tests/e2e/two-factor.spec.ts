@@ -46,7 +46,7 @@ test("enable 2FA, log in with a code, then disable it", async ({ page }) => {
   await passwordLogin(page);
   await expect(page).toHaveURL(/\/app\/dashboard$/);
   await page.goto("/app/settings");
-  await page.getByRole("button", { name: "Turn on" }).click();
+  await page.getByRole("button", { name: "Turn on" }).filter({ visible: true }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByAltText("QR code for your authenticator app")).toBeVisible();
   await dialog.getByText("Can't scan it?").click();

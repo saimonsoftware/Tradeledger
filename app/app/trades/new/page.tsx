@@ -10,7 +10,8 @@ import { emptyTradeValues } from "@/lib/trades/form-values";
 export const metadata: Metadata = { title: "Log a trade" };
 
 async function NewTrade() {
-  const { accounts, strategies, confluences, timezone, nowLocal } = await getTradeFormOptions();
+  const { accounts, strategies, confluences, hiddenConfluences, timezone, nowLocal } =
+    await getTradeFormOptions();
   const active = accounts.filter((a) => !a.is_archived);
   if (!active.length) return <NoAccountsNotice />;
   return (
@@ -18,6 +19,7 @@ async function NewTrade() {
       accounts={active}
       strategies={strategies}
       confluences={confluences}
+      hiddenConfluences={hiddenConfluences}
       timezone={timezone}
       defaultValues={emptyTradeValues(nowLocal, active.length === 1 ? active[0].id : "")}
     />
