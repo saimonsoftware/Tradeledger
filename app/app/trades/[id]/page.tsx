@@ -181,11 +181,11 @@ async function TradeDetail({ params }: { params: PageProps<"/app/trades/[id]">["
 
         <section aria-labelledby="notes-title" className="rounded-2xl surface">
           <h2 id="notes-title" className="border-b px-5 py-4 font-semibold">
-            Notes &amp; tags
+            Notes &amp; confluences
           </h2>
           <div className="space-y-4 p-5 text-sm">
             {trade.tags.length > 0 && (
-              <ul aria-label="Tags" className="flex flex-wrap gap-1.5">
+              <ul aria-label="Confluences" className="flex flex-wrap gap-1.5">
                 {trade.tags.map((t) => (
                   <li key={t} className="rounded-md border bg-background px-2 py-0.5 text-xs">
                     {t}

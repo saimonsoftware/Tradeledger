@@ -75,6 +75,7 @@ export function QuickAddTrade() {
               <TradeForm
                 accounts={active}
                 strategies={options.strategies}
+                confluences={options.confluences}
                 timezone={options.timezone}
                 defaultValues={emptyTradeValues(
                   options.nowLocal,

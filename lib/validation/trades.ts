@@ -1,7 +1,14 @@
 import { z } from "zod";
 
 import { checkLevel, tradeResult } from "@/lib/calculations/rr";
-import { DIRECTIONS, MAX_TAGS, PNL_SIDES, STRATEGIES, SYMBOLS } from "@/lib/trades/constants";
+import {
+  DIRECTIONS,
+  MAX_CONFLUENCE_CHARS,
+  MAX_TAGS,
+  PNL_SIDES,
+  STRATEGIES,
+  SYMBOLS,
+} from "@/lib/trades/constants";
 
 // Prices: up to 10 integer digits and 8 decimals (numeric(18,8)).
 // Kept as STRINGS end-to-end and sent to Postgres as text, so even values with
@@ -119,8 +126,15 @@ export const tradeSchema = z
       )
       .pipe(
         z
-          .array(z.string().max(30, "Each tag must be 30 characters or fewer"))
-          .max(MAX_TAGS, `Use at most ${MAX_TAGS} tags`),
+          .array(
+            z
+              .string()
+              .max(
+                MAX_CONFLUENCE_CHARS,
+                `Each confluence must be ${MAX_CONFLUENCE_CHARS} characters or fewer`,
+              ),
+          )
+          .max(MAX_TAGS, `Choose at most ${MAX_TAGS} confluences`),
       ),
     notes: z
       .string()

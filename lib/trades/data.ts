@@ -8,7 +8,7 @@ import { getProfile } from "@/lib/profile/data";
 import { listTradeScreenshots } from "@/lib/screenshots/storage";
 import { createClient } from "@/lib/supabase/server";
 
-import { STRATEGIES, TRADES_PAGE_SIZE } from "./constants";
+import { DEFAULT_CONFLUENCES, STRATEGIES, TRADES_PAGE_SIZE } from "./constants";
 import type { TradeFilters } from "./filters";
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -123,10 +123,24 @@ export async function getTradeFormOptions(client?: Client) {
   await requireUser();
   const { timezone } = await getProfile();
   const supabase = client ?? (await createClient());
-  const accounts = await supabase
-    .from("trading_accounts")
-    .select("id, name, currency, is_archived")
-    .order("created_at", { ascending: true });
+  const [accounts, used] = await Promise.all([
+    supabase
+      .from("trading_accounts")
+      .select("id, name, currency, is_archived")
+      .order("created_at", { ascending: true }),
+    // Confluences this trader has used (custom ones included), newest trades first.
+    supabase
+      .from("trades")
+      .select("tags")
+      .order("entry_time", { ascending: false })
+      .limit(1000),
+  ]);
+  const confluences: string[] = [...DEFAULT_CONFLUENCES];
+  for (const row of used.data ?? []) {
+    for (const t of row.tags) {
+      if (!confluences.some((c) => c.toLowerCase() === t.toLowerCase())) confluences.push(t);
+    }
+  }
   return {
     timezone,
     // "Now" as a wall-clock time in the user's timezone, for the default entry time.
@@ -135,6 +149,7 @@ export async function getTradeFormOptions(client?: Client) {
     accounts: accounts.data ?? [],
     // The fixed list of setups (form dropdown and list filter).
     strategies: [...STRATEGIES] as string[],
+    confluences,
   };
 }
 

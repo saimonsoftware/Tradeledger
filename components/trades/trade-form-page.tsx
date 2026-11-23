@@ -12,6 +12,7 @@ import { TradeForm, type TradeFormAccount } from "./trade-form";
 export function TradeFormPage(props: {
   accounts: TradeFormAccount[];
   strategies: string[];
+  confluences?: string[];
   timezone: string;
   defaultValues: TradeInput;
   tradeId?: string;

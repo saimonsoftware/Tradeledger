@@ -431,6 +431,13 @@ async function AnalyticsContent({
             key: g.key === "long" ? "Long" : g.key === "short" ? "Short" : g.key,
           }))}
         />
+        {a.stats.byTag.length > 0 && (
+          <GroupCard
+            title="Confluences"
+            description="A trade with several confluences counts in each one."
+            groups={a.stats.byTag.slice(0, 10)}
+          />
+        )}
         <Card
           title="Best and worst combinations"
           description="Strategy combined with symbol, session or direction, ranked by total R."

@@ -118,6 +118,15 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(sheet.getByText("+US$123.00").filter({ visible: true }).first()).toBeVisible();
   await sheet.getByLabel(/Strategy/).click();
   await page.getByRole("option", { name: "FBOs" }).click();
+  // Confluences: pick a starter one and add a custom one, then close the dropdown.
+  await sheet.getByLabel(/^Confluences/).click();
+  await page.getByRole("button", { name: "Liquidity sweep" }).click();
+  await page.getByLabel("Search or add a confluence").fill("London range");
+  await page.getByLabel("Search or add a confluence").press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(sheet.getByRole("list", { name: "Selected confluences" })).toContainText(
+    /Liquidity sweep[\s\S]*London range/,
+  );
   // Attach a screenshot before saving (uploaded right after the trade is created).
   await sheet.locator('input[type="file"]').setInputFiles({
     name: "chart.png",
@@ -138,6 +147,7 @@ test("add account → log trade → see it on the dashboard", async ({ page }) =
   await expect(page.getByLabel("Results")).toContainText("+2.00R");
   await expect(page.getByLabel("Results")).toContainText("+40 points");
   await expect(page.getByText("FBOs")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Confluences" })).toContainText("London range");
   await expect(page.getByText("21,460 · 20 points")).toBeVisible();
   await expect(page.getByText("21,520 · 40 points")).toBeVisible();
 

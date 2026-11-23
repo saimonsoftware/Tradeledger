@@ -320,6 +320,7 @@ export function computeInsightStats(
       combinations:
         'byStrategySymbol / byStrategyDirection / byStrategySession keys are "strategy · symbol/direction/session".',
       holdingTime: "Not tracked: trades are logged without an exit time.",
+      tags: 'byTag groups trades by the trader\'s CONFLUENCES (stored as tags), e.g. "Liquidity sweep" or "Fair value gap". A trade with several confluences counts in each of them. Call them confluences when talking to the trader.',
     },
   };
 }

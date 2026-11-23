@@ -23,11 +23,12 @@ import { createTrade, updateTrade } from "@/lib/trades/actions";
 import { checkLevel, PIP_LABEL, pipsBetween, tradeResult } from "@/lib/calculations/rr";
 import { formatR } from "@/lib/format/number";
 import type { Screenshot } from "@/lib/screenshots/storage";
-import { SYMBOLS } from "@/lib/trades/constants";
+import { DEFAULT_CONFLUENCES, SYMBOLS } from "@/lib/trades/constants";
 import { useFieldIds } from "@/lib/use-field-ids";
 import { cn } from "@/lib/utils";
 import { tradeSchema, type TradeInput, type TradeOutput } from "@/lib/validation/trades";
 
+import { ConfluencePicker } from "./confluence-picker";
 import {
   PendingScreenshots,
   TradeScreenshots,
@@ -40,6 +41,8 @@ export type TradeFormAccount = { id: string; name: string; currency: string; is_
 type Props = {
   accounts: TradeFormAccount[];
   strategies: string[];
+  /** Confluence choices: starter list + ones the trader used before. */
+  confluences?: string[];
   timezone: string;
   defaultValues: TradeInput;
   tradeId?: string;
@@ -231,6 +234,7 @@ function Toggle<T extends string>({
 export function TradeForm({
   accounts,
   strategies,
+  confluences = [...DEFAULT_CONFLUENCES],
   timezone,
   defaultValues,
   tradeId,
@@ -261,7 +265,6 @@ export function TradeForm({
   const unit = symbol === "NQ" ? PIP_LABEL.NQ : PIP_LABEL.EURUSD;
   const levels = useLevels(control);
 
-  const tags = useWatch({ control, name: "tags" }) ?? "";
   const currency = accounts.find((a) => a.id === accountId)?.currency ?? "EUR";
 
   const onSubmit = async () => {
@@ -633,34 +636,21 @@ export function TradeForm({
               </div>
 
               <div className="space-y-2 @lg:col-span-2">
-                <Label htmlFor={f("tags")}>Tags {optional}</Label>
-                <Input
-                  id={f("tags")}
-                  placeholder="A+ setup, patient, news"
-                  autoComplete="off"
-                  aria-describedby={f("tags-hint")}
-                  aria-invalid={!!errors.tags}
-                  {...register("tags")}
+                <Label htmlFor={f("tags")}>Confluences {optional}</Label>
+                <Controller
+                  control={control}
+                  name="tags"
+                  render={({ field: fld }) => (
+                    <ConfluencePicker
+                      id={f("tags")}
+                      value={fld.value ?? ""}
+                      onChange={fld.onChange}
+                      options={confluences}
+                      invalid={!!errors.tags}
+                      describedBy={errors.tags ? f("tags-error") : undefined}
+                    />
+                  )}
                 />
-                <p id={f("tags-hint")} className="text-xs text-muted-foreground">
-                  Separate tags with commas.
-                </p>
-                {tags.trim() && (
-                  <ul aria-label="Tags preview" className="flex flex-wrap gap-1.5">
-                    {[
-                      ...new Set(
-                        tags
-                          .split(",")
-                          .map((t) => t.trim())
-                          .filter(Boolean),
-                      ),
-                    ].map((t) => (
-                      <li key={t} className="rounded-md border bg-background px-2 py-0.5 text-xs">
-                        {t}
-                      </li>
-                    ))}
-                  </ul>
-                )}
                 <FieldError id={f("tags-error")} message={errors.tags?.message} />
               </div>
 
